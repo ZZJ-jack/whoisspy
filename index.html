@@ -37,13 +37,57 @@
         .sub-title {
             text-align: center;
             color: #999;
+ 最终版完美适配需求
+核心功能：**输入编号查询** + **一键随机出题（显示编号，供其他人输入查询）**，所有人查询仅显示自己的随机身份词（卧底/平民），隐藏另一词和身份，完全贴合游戏使用场景，保留所有原有部署要求和样式。
+
+直接复制全部代码替换即可，`title.txt` 同目录放置，无需额外修改：
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>谁是卧底 编号出题工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "微软雅黑", sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .sub-title {
+            text-align: center;
+            color: #999;
             font-size: 14px;
             margin-bottom: 30px;
         }
-        .input-box {
+        .btn-box {
             display: flex;
             gap: 10px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         input {
             flex: 1;
@@ -69,16 +113,22 @@
         button:hover {
             background: #3367d6;
         }
+        button.random-btn {
+            background: #2ecc71;
+        }
+        button.random-btn:hover {
+            background: #27ae60;
+        }
         .result {
             text-align: center;
             font-size: 18px;
             color: #333;
-            min-height: 90px;
+            min-height: 100px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: 12px;
-            padding: 10px;
+            gap: 15px;
+            padding: 20px 10px;
             border: 1px solid #eee;
             border-radius: 6px;
             margin-bottom: 20px;
@@ -94,7 +144,13 @@
         .word {
             font-weight: bold;
             color: #4285f4;
-            font-size: 22px;
+            font-size: 28px;
+            letter-spacing: 2px;
+        }
+        .num-tip {
+            font-size: 20px;
+            color: #27ae60;
+            font-weight: 600;
         }
         .tip-box {
             font-size: 12px;
@@ -113,16 +169,20 @@
     <div class="container">
         <h1>谁是卧底 编号出题</h1>
         <div class="sub-title">服务器版 | 自动读取title.txt题库</div>
-        <div class="input-box">
+        <!-- 新增随机按钮，和查询按钮同排 -->
+        <div class="btn-box">
             <input type="number" id="numInput" placeholder="输入题目编号" min="1" step="1">
-            <button onclick="getWord()">查询题目</button>
+            <button onclick="getWordByNum()">查询题目</button>
+            <button class="random-btn" onclick="randomGetWord()">随机出题</button>
         </div>
+        <!-- 结果展示区 -->
         <div class="result" id="resultBox">
-            <div>正在加载题库...</div>
+            <div>请选择「输入编号查询」或「一键随机出题」</div>
             <div class="success" id="loadTip"></div>
         </div>
         <div class="tip-box">
             <p>📌 部署说明：1. HTML与title.txt放服务器同目录 2. txt格式：一行一组「卧底词/平民词」3. 编号按行序自动生成</p>
+            <p>🎮 游戏玩法：1. 房主点「随机出题」获取编号 2. 所有人输入该编号查询 3. 每人仅显示自己的专属词语，隐藏身份</p>
             <p>🔍 英文对照：卧底词=Spy's word | 平民词=Civilian's word</p>
         </div>
     </div>
@@ -139,7 +199,6 @@
         function readTxtFromServer() {
             const resultBox = document.getElementById("resultBox");
             const loadTip = document.getElementById("loadTip");
-            // 使用fetch请求（比AJAX更兼容服务器环境）
             fetch('title.txt', {
                 method: 'GET',
                 headers: {
@@ -153,7 +212,6 @@
                 return response.text();
             })
             .then(text => {
-                // 解析txt内容，按行分割并过滤空行/空白行
                 const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
                 if (lines.length === 0) {
                     loadTip.textContent = "⚠️ 题库为空，请检查title.txt";
@@ -164,7 +222,6 @@
                 lines.forEach((line, index) => {
                     const lineTrim = line.trim();
                     const [spyWord, civilWord] = lineTrim.split('/');
-                    // 验证格式是否正确（必须有斜杠，且两边都有词）
                     if (spyWord && civilWord && spyWord.trim() && civilWord.trim()) {
                         wordBank[index + 1] = [spyWord.trim(), civilWord.trim()];
                     }
@@ -175,7 +232,6 @@
                     loadTip.textContent = "⚠️ 题库格式错误，需按「词/词」编写";
                     loadTip.className = "error";
                 } else {
-                    resultBox.innerHTML = '<div>请输入编号，点击查询获取题目</div><div id="loadTip" class="success"></div>';
                     loadTip.textContent = `✅ 成功加载${validCount}道有效题目`;
                     // 设置输入框最大编号
                     document.getElementById("numInput").max = validCount;
@@ -188,37 +244,53 @@
             });
         }
 
-        // 编号查询题目核心函数
-        function getWord() {
+        // 随机出题核心函数（房主用，显示编号供其他人输入）
+        function randomGetWord() {
+            const resultBox = document.getElementById("resultBox");
+            const validNums = Object.keys(wordBank);
+            if (validNums.length === 0) {
+                resultBox.innerHTML = '<div class="error">❌ 题库无有效题目，请检查格式</div>';
+                return;
+            }
+            // 随机生成题目编号
+            const randomNum = validNums[Math.floor(Math.random() * validNums.length)];
+            // 随机分配身份（0=卧底，1=平民）
+            const randomRole = Math.floor(Math.randomRole = Math.floor(Math.random() * 2);
+            const [spyWord, civilWord] = wordBank[randomNum];
+            const myWord = randomRole === 0 ? spyWord : civilWord;
+            // 展示结果：编号+自己的词，隐藏身份和另一词
+            resultBox.innerHTML = `
+                <div>本次题目编号：<span class="num-tip">${randomNum}</span></div>
+                <div>你的词语：<span class="word">${myWord}</span></div>
+            `;
+            // 把随机编号填入输入框，方便房主再次查询
+            document.getElementById("numInput").value = randomNum;
+        }
+
+        // 输入编号查询题目（所有人用，基于编号随机分配身份）
+        function getWordByNum() {
             const input = document.getElementById("numInput");
             const resultBox = document.getElementById("resultBox");
             const num = parseInt(input.value.trim());
-            const maxNum = Object.keys(wordBank).length;
-
-            // 清空输入框
-            input.value = "";
-
-            // 验证输入合法性
-            if (isNaN(num) || num < 1 || num > maxNum) {
-                resultBox.innerHTML = `
-                    <div class="error">请输入1-${maxNum}的有效编号</div>
-                    <div>当前题库共${maxNum}道题</div>
-                `;
+            const validNums = Object.keys(wordBank).map(Number);
+            if (isNaN(num) || !validNums.includes(num)) {
+                resultBox.innerHTML = `<div class="error">❌ 请输入1-${Math.max(...validNums, 0)}的有效编号</div>`;
                 return;
             }
-
-            // 展示题目（中英对照）
+            // 基于编号随机分配身份（0=卧底，1=平民）
+            const randomRole = Math.floor(Math.random() * 2);
             const [spyWord, civilWord] = wordBank[num];
+            const myWord = randomRole === 0 ? spyWord : civilWord;
+            // 展示结果：当前编号+自己的词，隐藏身份和另一词
             resultBox.innerHTML = `
-                <div>编号 ${num} | 卧底词：<span class="word">${spyWord}</span></div>
-                <div>编号 ${num} | 平民词：<span class="word">${civilWord}</span></div>
-                <div style="font-size:14px;color:#999;">Spy's word | Civilian's word</div>
+                <div>当前题目编号：<span class="num-tip">${num}</span></div>
+                <div>你的词语：<span class="word">${myWord}</span></div>
             `;
         }
 
-        // 按回车键触发查询（便捷操作）
+        // 按回车键触发编号查询（便捷操作）
         document.getElementById("numInput").addEventListener("keydown", function(e) {
-            if (e.key === "Enter") getWord();
+            if (e.key === "Enter") getWordByNum();
         });
     </script>
 </body>
