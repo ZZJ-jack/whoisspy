@@ -43,7 +43,6 @@
             color: #718096;
             font-size: 13px;
         }
-        /* 分区标题 */
         .part-title {
             font-size: 15px;
             font-weight: 600;
@@ -60,7 +59,6 @@
             background: #667eea;
             border-radius: 2px;
         }
-        /* 房主区 & 玩家区 样式 */
         .oper-group {
             display: flex;
             gap: 10px;
@@ -80,6 +78,10 @@
         .input-item:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .input-item[readonly] {
+            background: #f7fafc;
+            cursor: not-allowed;
         }
         .btn {
             padding: 12px 20px;
@@ -111,7 +113,6 @@
         .reset-btn:hover {
             background: #dd7b2f;
         }
-        /* 出题操作区 */
         .game-oper {
             display: flex;
             gap: 10px;
@@ -129,6 +130,10 @@
         #numInput:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        #numInput[readonly] {
+            background: #f7fafc;
+            cursor: not-allowed;
         }
         .game-btn {
             padding: 14px 20px;
@@ -150,7 +155,6 @@
             background: #bcc2e2 !important;
             cursor: not-allowed !important;
         }
-        /* 结果区 */
         .result-box {
             min-height: 140px;
             display: flex;
@@ -193,7 +197,11 @@
             letter-spacing: 3px;
             margin-top: 5px;
         }
-        /* 提示区 */
+        .result-box .lock-text {
+            color: #ed8936;
+            font-size: 14px;
+            font-weight: 600;
+        }
         .tip-box {
             background: #edf2f7;
             border-radius: 12px;
@@ -208,7 +216,7 @@
     <div class="container">
         <div class="header">
             <h1>谁是卧底 出题工具</h1>
-            <div class="sub">服务器版 | 加密密码 | 双入口分离 <span id="bankCount"></span></div>
+            <div class="sub">强制同题 | 加密密码 | 双入口分离 <span id="bankCount"></span></div>
         </div>
 
         <!-- 房主独立操作区 -->
@@ -217,7 +225,7 @@
             <input type="number" class="input-item" id="ownerCount" placeholder="输入总玩家数（≥2）" min="2">
             <button class="btn owner-btn" id="genPwdBtn">生成加密初始密码</button>
         </div>
-        <div style="font-size:12px;color:#718096;">提示：生成后请验证密码并出题</div>
+        <div style="font-size:12px;color:#718096;">提示：生成后请验证密码并锁定题目</div>
 
         <!-- 玩家独立操作区 -->
         <div class="part-title">🎮 玩家入口</div>
@@ -231,11 +239,11 @@
         <button class="btn reset-btn" id="resetBtn">重置所有配置（新游戏）</button>
 
         <!-- 出题操作区（验证后启用） -->
-        <div class="part-title">🎲 出题区</div>
+        <div class="part-title">🎲 出题区 <span id="lockTip" style="font-size:12px;color:#ed8936;"></span></div>
         <div class="game-oper">
             <input type="number" id="numInput" placeholder="输入题目编号" disabled>
-            <button class="game-btn random-btn btn-disabled" id="randomBtn">随机出题</button>
-            <button class="game-btn query-btn btn-disabled" id="queryBtn">查询题目</button>
+            <button class="game-btn random-btn btn-disabled" id="randomBtn">房主随机选题</button>
+            <button class="game-btn query-btn btn-disabled" id="queryBtn">查询词语</button>
         </div>
 
         <!-- 结果展示区 -->
@@ -246,17 +254,19 @@
         <!-- 部署提示 -->
         <div class="tip-box">
             <p>📌 部署：HTML与title.txt同目录，txt一行一组「卧底词/平民词」</p>
-            <p>🔒 密码规则：加密后无法肉眼识别身份，系统自动解析，强制1卧底</p>
-            <p>🎮 流程：房主生成密码→玩家输密码→逐人出题获取专属词语</p>
+            <p>🔒 核心规则：房主选题后编号锁定，所有人强制同一题，密码加密防身份泄露</p>
+            <p>🎮 流程：房主生成密码→选题锁定→玩家输密码→自动填充编号查词</p>
         </div>
     </div>
 
     <script>
-        // 全局配置
+        // 全局配置 - 新增 lockedNum 锁定题目编号
         let gameConfig = {
             isInited: false, // 是否已验证密码
             total: 0, spy: 1, civil: 0, // 人数配置
-            currPwd: '', assigned: 0, lastRole: '', currNum: 0 // 密码/分配状态
+            currPwd: '', assigned: 0, lastRole: '', currNum: 0, // 密码/分配状态
+            lockedNum: 0, // 锁定的题目编号，0=未锁定
+            isOwner: false // 是否是房主（房主可选题，玩家不可）
         };
         let wordBank = {}; // 题库
         let validNums = []; // 有效题目编号
@@ -275,7 +285,8 @@
             randomBtn: document.getElementById('randomBtn'),
             queryBtn: document.getElementById('queryBtn'),
             resultBox: document.getElementById('resultBox'),
-            bankCount: document.getElementById('bankCount')
+            bankCount: document.getElementById('bankCount'),
+            lockTip: document.getElementById('lockTip')
         };
 
         // 页面加载初始化
@@ -304,8 +315,9 @@
         }
 
         // 2. 加密函数：将配置转为Base64（混淆敏感信息）
-        function encryptConfig(total, spy, civil, role = 'INIT') {
-            const configStr = `${total},${spy},${civil},${role}`;
+        function encryptConfig(total, spy, civil, role = 'INIT', lockedNum = 0) {
+            // 密码新增锁定编号，确保玩家同步编号
+            const configStr = `${total},${spy},${civil},${role},${lockedNum}`;
             return btoa(encodeURIComponent(configStr)); // Base64编码
         }
 
@@ -313,12 +325,13 @@
         function decryptConfig(encryptPwd) {
             try {
                 const configStr = decodeURIComponent(atob(encryptPwd));
-                const [total, spy, civil, role] = configStr.split(',');
+                const [total, spy, civil, role, lockedNum] = configStr.split(',');
                 return {
                     total: parseInt(total),
                     spy: parseInt(spy),
                     civil: parseInt(civil),
-                    role: role
+                    role: role,
+                    lockedNum: parseInt(lockedNum) // 同步房主锁定的编号
                 };
             } catch (e) {
                 return null; // 解密失败=密码无效
@@ -334,12 +347,14 @@
                 return;
             }
             const civil = total - gameConfig.spy;
-            // 生成加密初始密码
+            // 生成加密初始密码（初始锁定编号为0）
             const encryptPwd = encryptConfig(total, gameConfig.spy, civil);
-            // 更新配置
+            // 更新配置 - 标记为房主
             gameConfig = {
                 isInited: false, total, spy: gameConfig.spy, civil,
-                currPwd: encryptPwd, assigned: 0, lastRole: '', currNum: 0
+                currPwd: encryptPwd, assigned: 0, lastRole: '', currNum: 0,
+                lockedNum: 0,
+                isOwner: true // 房主标识
             };
             // 提示房主
             renderResult('success', 
@@ -347,6 +362,8 @@
             );
             // 自动填入玩家密码框，方便房主验证
             dom.playerPwd.value = encryptPwd;
+            // 显示房主提示
+            dom.lockTip.innerText = '（房主可随机选题并锁定）';
         }
 
         // 5. 验证加密密码（房主/玩家通用）
@@ -372,12 +389,26 @@
             gameConfig.civil = config.civil;
             gameConfig.lastRole = config.role;
             gameConfig.currPwd = inputPwd;
-            // 启用出题区
-            enableGameOper(true);
-            // 提示
-            renderResult('success', 
-                `✅ 密码验证成功！\n当前配置：${config.total}人（卧底${config.spy}人/平民${config.civil}人）\n你是第${gameConfig.assigned + 1}位玩家，请点击出题`
-            );
+            gameConfig.lockedNum = config.lockedNum; // 同步锁定编号
+
+            // 区分房主和玩家的UI逻辑
+            if (gameConfig.isOwner) {
+                // 房主：启用选题+查询，输入框可编辑
+                enableGameOper(true, true);
+                renderResult('success', `✅ 房主验证成功！请点击【房主随机选题】锁定题目`);
+            } else {
+                // 玩家：禁用随机选题，输入框填充锁定编号并设为只读
+                if (gameConfig.lockedNum === 0) {
+                    renderResult('error', '❌ 房主尚未锁定题目！请等待房主选题后再验证');
+                    return;
+                }
+                // 自动填充锁定编号，设为只读
+                dom.numInput.value = gameConfig.lockedNum;
+                dom.numInput.readOnly = true;
+                // 启用查询按钮，禁用随机按钮
+                enableGameOper(true, false);
+                renderResult('success', `✅ 玩家验证成功！\n已自动填充锁定题目编号：${gameConfig.lockedNum}\n请点击【查询词语】获取你的专属词`);
+            }
         }
 
         // 6. 读取题库
@@ -403,32 +434,63 @@
             });
         }
 
-        // 7. 随机出题
+        // 7. 房主随机选题 - 选题后立即锁定编号
         function randomGetWord() {
-            if (!gameConfig.isInited) return renderResult('error', '❌ 请先验证密码');
-            if (validNums.length === 0) return renderResult('error', '❌ 题库无有效题目');
-            const randomNum = validNums[Math.floor(Math.random() * validNums.length)];
-            gameConfig.currNum = randomNum;
-            dom.numInput.value = randomNum;
-            assignRoleAndShowWord(randomNum);
-        }
-
-        // 8. 编号查询
-        function getWordByNum() {
-            if (!gameConfig.isInited) return renderResult('error', '❌ 请先验证密码');
-            const num = parseInt(dom.numInput.value.trim());
-            if (!num || !validNums.includes(num)) {
-                renderResult('error', `❌ 请输入1-${validNums.length}的有效编号`);
-                dom.numInput.focus();
+            // 非房主/未验证密码，禁止操作
+            if (!gameConfig.isInited || !gameConfig.isOwner) {
+                renderResult('error', '❌ 只有房主可以随机选题！');
                 return;
             }
+            if (validNums.length === 0) return renderResult('error', '❌ 题库无有效题目');
+            
+            // 随机选编号并锁定
+            const randomNum = validNums[Math.floor(Math.random() * validNums.length)];
+            gameConfig.lockedNum = randomNum;
+            gameConfig.currNum = randomNum;
+            // 更新输入框
+            dom.numInput.value = randomNum;
+            // 加密密码新增锁定编号，让玩家同步
+            const newEncryptPwd = encryptConfig(
+                gameConfig.total, gameConfig.spy, gameConfig.civil,
+                gameConfig.lastRole, gameConfig.lockedNum
+            );
+            gameConfig.currPwd = newEncryptPwd;
+
+            // 分配房主身份并展示
+            assignRoleAndShowWord(randomNum);
+            // 提示房主编号已锁定
+            dom.lockTip.innerText = `（已锁定题目编号：${randomNum}，所有人强制用此题）`;
+        }
+
+        // 8. 查询词语 - 强制使用锁定编号
+        function getWordByNum() {
+            if (!gameConfig.isInited) return renderResult('error', '❌ 请先验证密码');
+            
+            let num = 0;
+            if (gameConfig.isOwner) {
+                // 房主可手动输入，但锁定后强制用锁定编号
+                num = gameConfig.lockedNum || parseInt(dom.numInput.value.trim());
+            } else {
+                // 玩家强制用锁定编号
+                num = gameConfig.lockedNum;
+            }
+
+            // 验证编号有效性
+            if (!num || !validNums.includes(num)) {
+                renderResult('error', gameConfig.isOwner 
+                    ? `❌ 请输入1-${validNums.length}的有效编号`
+                    : `❌ 房主锁定的编号无效，请联系房主重新选题`
+                );
+                return;
+            }
+
             gameConfig.currNum = num;
             assignRoleAndShowWord(num);
         }
 
         // 9. 身份分配+生成新加密密码
         function assignRoleAndShowWord(num) {
-            // 计算已分配卧底/平民数
+            // 计算已分配卧底数
             const assignedSpy = gameConfig.assigned - gameConfig.civil + (gameConfig.lastRole === 'civil' ? 1 : 0);
             // 分配规则：未分配过随机选，卧底未满选卧底，否则选平民
             let currRole = gameConfig.assigned === 0 
@@ -437,33 +499,43 @@
             
             const [spyWord, civilWord] = wordBank[num];
             const myWord = currRole === 'spy' ? spyWord : civilWord;
-            // 生成新加密密码（含当前身份）
-            const newEncryptPwd = encryptConfig(gameConfig.total, gameConfig.spy, gameConfig.civil, currRole);
+            // 生成新加密密码（含当前身份+锁定编号）
+            const newEncryptPwd = encryptConfig(
+                gameConfig.total, gameConfig.spy, gameConfig.civil,
+                currRole, gameConfig.lockedNum
+            );
             // 更新配置
             gameConfig.assigned += 1;
             gameConfig.currPwd = newEncryptPwd;
             gameConfig.lastRole = currRole;
             // 禁用出题按钮，一人一词
-            enableGameOper(false);
+            enableGameOper(false, false);
             // 展示结果
             renderResult('game', num, myWord, newEncryptPwd);
         }
 
         // 10. 启用/禁用出题按钮
-        function enableGameOper(isEnable) {
+        function enableGameOper(isEnable, canRandom) {
             dom.numInput.disabled = !isEnable;
-            dom.randomBtn.classList.toggle('btn-disabled', !isEnable);
             dom.queryBtn.classList.toggle('btn-disabled', !isEnable);
+            // 只有房主且未锁定时，才能随机选题
+            dom.randomBtn.classList.toggle('btn-disabled', !canRandom || !isEnable);
             if (isEnable) dom.numInput.placeholder = `输入1-${validNums.length}的编号`;
         }
 
         // 11. 重置所有配置
         function resetAll() {
-            gameConfig = { isInited: false, total: 0, spy: 1, civil: 0, currPwd: '', assigned: 0, lastRole: '', currNum: 0 };
+            gameConfig = {
+                isInited: false, total: 0, spy: 1, civil: 0,
+                currPwd: '', assigned: 0, lastRole: '', currNum: 0,
+                lockedNum: 0, isOwner: false
+            };
             dom.ownerCount.value = '';
             dom.playerPwd.value = '';
             dom.numInput.value = '';
-            enableGameOper(false);
+            dom.numInput.readOnly = false;
+            dom.lockTip.innerText = '';
+            enableGameOper(false, false);
             renderResult('success', '✅ 已重置所有配置，可开始新游戏');
         }
 
@@ -485,6 +557,7 @@
                         <div class="success">✅ 你已获取专属词语（仅自己可见）</div>
                         <div class="success">💡 下一位玩家密码：</div>
                         <div class="pwd-text">${pwd}</div>
+                        ${gameConfig.isOwner ? '<div class="lock-text">🔒 编号已锁定，所有人用此题</div>' : ''}
                     `;
                     break;
             }
