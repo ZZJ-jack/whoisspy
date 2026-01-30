@@ -43,14 +43,14 @@
             color: #718096;
             font-size: 13px;
         }
-        /* 配置区样式 */
-        .config-box {
+        /* 核心配置区：房主/玩家区分 */
+        .core-box {
             display: flex;
             gap: 8px;
             margin-bottom: 15px;
             flex-wrap: wrap;
         }
-        .config-input {
+        .core-input {
             flex: 1;
             min-width: 120px;
             padding: 12px 15px;
@@ -60,11 +60,11 @@
             outline: none;
             transition: all 0.3s;
         }
-        .config-input:focus {
+        .core-input:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-        .config-btn {
+        .core-btn {
             padding: 12px 18px;
             border: none;
             border-radius: 10px;
@@ -72,25 +72,47 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s;
+        }
+        .gen-pwd-btn {
             background: #38b2ac;
             color: #fff;
         }
-        .config-btn:hover {
+        .gen-pwd-btn:hover {
             background: #319795;
         }
-        .config-btn.reset {
-            background: #ed8936;
+        .verify-pwd-btn {
+            background: #667eea;
+            color: #fff;
         }
-        .config-btn.reset:hover {
+        .verify-pwd-btn:hover {
+            background: #5a6edb;
+        }
+        .reset-btn {
+            background: #ed8936;
+            color: #fff;
+            flex: 1;
+            min-width: 120px;
+        }
+        .reset-btn:hover {
             background: #dd7b2f;
         }
-        .config-tip {
+        /* 配置提示 */
+        .core-tip {
             font-size: 12px;
             color: #718096;
             margin-bottom: 20px;
             padding-left: 5px;
+            line-height: 1.6;
         }
-        /* 操作区样式 */
+        .core-tip .owner {
+            color: #38b2ac;
+            font-weight: 500;
+        }
+        .core-tip .player {
+            color: #667eea;
+            font-weight: 500;
+        }
+        /* 操作区 */
         .oper-box {
             display: flex;
             gap: 10px;
@@ -114,7 +136,7 @@
             background: #f7fafc;
             cursor: not-allowed;
         }
-        button {
+        .query-btn, .random-btn {
             padding: 14px 20px;
             border: none;
             border-radius: 12px;
@@ -122,42 +144,38 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s;
+            color: #fff;
         }
         .query-btn {
             background: #667eea;
-            color: #fff;
         }
         .query-btn:hover {
             background: #5a6edb;
         }
-        .query-btn:disabled {
-            background: #bcc2e2;
-            cursor: not-allowed;
-        }
         .random-btn {
             background: #38b2ac;
-            color: #fff;
         }
         .random-btn:hover {
             background: #319795;
         }
-        .random-btn:disabled {
-            background: #92dcd9;
-            cursor: not-allowed;
+        .btn-disabled {
+            background: #bcc2e2 !important;
+            cursor: not-allowed !important;
         }
-        /* 结果区样式 */
+        /* 结果区 */
         .result-box {
             min-height: 120px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: 10px;
             padding: 20px 15px;
             background: #f7fafc;
             border-radius: 12px;
             margin-bottom: 20px;
             text-align: center;
+            white-space: pre-wrap;
         }
         .result-box .loading, .result-box .init {
             color: #718096;
@@ -169,7 +187,14 @@
         }
         .result-box .success {
             color: #38b2ac;
-            font-size: 14px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .result-box .pwd-text {
+            color: #e53e3e;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1px;
         }
         .result-box .num-text {
             color: #38b2ac;
@@ -183,7 +208,7 @@
             letter-spacing: 3px;
             margin-top: 5px;
         }
-        /* 提示区样式 */
+        /* 极简提示区 */
         .tip-box {
             background: #edf2f7;
             border-radius: 12px;
@@ -204,20 +229,24 @@
             <div class="sub">服务器版 | 读取title.txt <span id="bankCount"></span></div>
         </div>
 
-        <!-- 新增：人数+密码配置区 -->
-        <div class="config-box">
-            <input type="number" class="config-input" id="playerCount" placeholder="总玩家数" min="2" step="1">
-            <input type="text" class="config-input" id="gamePwd" placeholder="自定义密码（可选）">
-            <button class="config-btn" id="setConfig">确认配置</button>
-            <button class="config-btn reset" id="resetConfig" style="display: none;">重置</button>
+        <!-- 核心区：房主生成密码 / 玩家验证密码 -->
+        <div class="core-box">
+            <input type="number" class="core-input" id="ownerCount" placeholder="房主请输总玩家数" min="2" step="1">
+            <input type="text" class="core-input" id="playerPwd" placeholder="玩家请输游戏密码" style="display: none;">
+            <button class="core-btn gen-pwd-btn" id="genPwdBtn">生成初始密码</button>
+            <button class="core-btn verify-pwd-btn" id="verifyPwdBtn" style="display: none;">验证密码</button>
+            <button class="core-btn reset-btn" id="resetBtn">重置所有配置</button>
         </div>
-        <div class="config-tip" id="configTip">👉 先设置玩家数，密码留空将自动生成（含人数/卧底数）</div>
+        <div class="core-tip" id="coreTip">
+            <span class="owner">👉 房主操作</span>：输入总玩家数（≥2）→点击【生成初始密码】；<br>
+            <span class="player">👉 玩家操作</span>：等待房主告知密码→输入后点击【验证密码】
+        </div>
 
-        <!-- 原有：编号操作区 -->
+        <!-- 编号操作区 -->
         <div class="oper-box">
             <input type="number" id="numInput" placeholder="输入题目编号" min="1" step="1" disabled>
-            <button class="query-btn" id="queryBtn" onclick="getWordByNum()" disabled>查询</button>
-            <button class="random-btn" id="randomBtn" onclick="randomGetWord()" disabled>随机出题</button>
+            <button class="query-btn btn-disabled" id="queryBtn" onclick="getWordByNum()">查询</button>
+            <button class="random-btn btn-disabled" id="randomBtn" onclick="randomGetWord()">随机出题</button>
         </div>
 
         <!-- 结果展示区 -->
@@ -225,178 +254,321 @@
             <div class="loading">正在加载题库...</div>
         </div>
 
-        <!-- 极简提示区 -->
+        <!-- 极简部署提示 -->
         <div class="tip-box">
             <p>📌 部署：HTML与title.txt同目录，txt一行一组「卧底词/平民词」</p>
-            <p>🎮 玩法：房主配置人数→获取密码→所有人输密码验证→统一出题/查询</p>
+            <p>🔒 规则：强制1卧底，密码自动含人数/身份，逐人分配不重复身份</p>
         </div>
     </div>
 
     <script>
-        // 全局变量
+        // 全局核心配置：存储人数/身份/密码/已分配人数等关键信息
+        let gameConfig = {
+            isInited: false,    // 是否完成初始化（房主生成密码/玩家验证密码）
+            total: 0,           // 总玩家数
+            spy: 1,             // 卧底数（固定1）
+            civil: 0,           // 平民数（total-1）
+            currPwd: '',        // 当前有效密码
+            assigned: 0,        // 已分配身份人数
+            lastRole: '',       // 上一位玩家身份（spy/ civil）
+            currNum: 0          // 当前使用的题目编号
+        };
+        // 全局题库
         let wordBank = {};
         let validNums = [];
-        let gameConfig = { isSet: false, total: 0, spy: 0, civil: 0, pwd: '' };
-        // DOM元素获取
-        const [playerCount, gamePwd, setConfig, resetConfig, configTip] = [
-            document.getElementById('playerCount'),
-            document.getElementById('gamePwd'),
-            document.getElementById('setConfig'),
-            document.getElementById('resetConfig'),
-            document.getElementById('configTip')
-        ];
-        const [numInput, queryBtn, randomBtn, resultBox, bankCount] = [
-            document.getElementById('numInput'),
-            document.getElementById('queryBtn'),
-            document.getElementById('randomBtn'),
-            document.getElementById('resultBox'),
-            document.getElementById('bankCount')
-        ];
+        // DOM元素获取（按功能分区，方便维护）
+        const dom = {
+            // 核心区
+            ownerCount: document.getElementById('ownerCount'),
+            playerPwd: document.getElementById('playerPwd'),
+            genPwdBtn: document.getElementById('genPwdBtn'),
+            verifyPwdBtn: document.getElementById('verifyPwdBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            coreTip: document.getElementById('coreTip'),
+            // 操作区
+            numInput: document.getElementById('numInput'),
+            queryBtn: document.getElementById('queryBtn'),
+            randomBtn: document.getElementById('randomBtn'),
+            // 结果区
+            resultBox: document.getElementById('resultBox'),
+            bankCount: document.getElementById('bankCount')
+        };
 
         // 页面加载初始化
         window.onload = function() {
-            readTxtFromServer();
-            // 回车键绑定
-            numInput.addEventListener('keydown', e => e.key === 'Enter' && !queryBtn.disabled && getWordByNum());
-            setConfig.addEventListener('click', setGameConfig);
-            resetConfig.addEventListener('click', resetGameConfig);
+            readTxtFromServer(); // 加载题库
+            bindEvents();        // 绑定所有点击/回车事件
         };
 
-        // 1. 读取服务器题库title.txt
+        // 1. 绑定所有交互事件（统一管理，避免散写）
+        function bindEvents() {
+            // 房主生成初始密码
+            dom.genPwdBtn.addEventListener('click', generateInitPwd);
+            // 玩家验证密码
+            dom.verifyPwdBtn.addEventListener('click', verifyPlayerPwd);
+            // 重置所有配置
+            dom.resetBtn.addEventListener('click', resetAllConfig);
+            // 回车键：查询框按回车触发查询
+            dom.numInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && !dom.queryBtn.classList.contains('btn-disabled')) {
+                    getWordByNum();
+                }
+            });
+            // 随机出题/编号查询
+            dom.randomBtn.addEventListener('click', randomGetWord);
+            dom.queryBtn.addEventListener('click', getWordByNum);
+        }
+
+        // 2. 读取服务器title.txt题库（兼容空行/斜杠前后空格）
         function readTxtFromServer() {
-            fetch('title.txt', { method: 'GET', headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
-            .then(res => res.ok ? res.text() : Promise.reject('文件不存在'))
+            fetch('title.txt', {
+                method: 'GET',
+                headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+            })
+            .then(res => res.ok ? res.text() : Promise.reject('文件不存在或服务器异常'))
             .then(text => {
-                // 解析并过滤空行、清理斜杠前后空格
+                // 过滤空行、纯空格行，清理多余空格
                 const lines = text.split(/\r?\n/).filter(line => line.trim().replace(/\s+/g, '') !== '');
-                if (lines.length === 0) return renderResult('error', '题库为空，请检查title.txt');
-                // 构建题库
+                if (lines.length === 0) {
+                    renderResult('error', '❌ 题库为空，请检查title.txt文件');
+                    return;
+                }
+                // 构建题库，编号从1开始
                 lines.forEach((line, idx) => {
-                    const [spyWord, civilWord] = line.trim().replace(/\s*\/\s*/, '/').split('/');
+                    const cleanLine = line.trim().replace(/\s*\/\s*/, '/'); // 去除斜杠前后空格
+                    const [spyWord, civilWord] = cleanLine.split('/');
+                    // 验证格式：必须有两个有效词语
                     if (spyWord && civilWord && spyWord.trim() && civilWord.trim()) {
                         wordBank[idx + 1] = [spyWord.trim(), civilWord.trim()];
                     }
                 });
-                // 验证有效题库
+                // 整理有效编号并排序
                 validNums = Object.keys(wordBank).map(Number).sort((a, b) => a - b);
-                const count = validNums.length;
-                if (count === 0) renderResult('error', '题库格式错误！请按「卧底词/平民词」编写');
-                else {
-                    bankCount.innerText = `(${count}题)`;
-                    renderResult('init', '先配置玩家数+密码，再出题/查询');
-                    // 启用配置输入框
-                    playerCount.disabled = false;
-                    gamePwd.disabled = false;
+                const validCount = validNums.length;
+                if (validCount === 0) {
+                    renderResult('error', '❌ 题库格式错误！请按「卧底词/平民词」编写');
+                } else {
+                    dom.bankCount.innerText = `(${validCount}题)`;
+                    renderResult('init', '✅ 题库加载完成，请按提示完成身份验证');
                 }
             })
             .catch(err => {
-                renderResult('error', '❌ 题库读取失败！检查title.txt是否同目录');
-                console.log('题库错误：', err);
+                renderResult('error', '❌ 题库读取失败！请检查title.txt是否与HTML同目录');
+                console.log('题库加载错误：', err);
             });
         }
 
-        // 2. 设置游戏配置（人数+密码）核心函数
-        function setGameConfig() {
-            const total = parseInt(playerCount.value.trim());
-            // 验证玩家数
+        // 3. 房主生成初始密码（核心：仅房主操作，自动生成含人数配置的密码）
+        function generateInitPwd() {
+            const total = parseInt(dom.ownerCount.value.trim());
+            // 验证玩家数：至少2人
             if (isNaN(total) || total < 2) {
-                renderResult('error', '玩家数至少2人！');
-                playerCount.focus();
+                renderResult('error', '❌ 总玩家数至少2人，请重新输入');
+                dom.ownerCount.focus();
                 return;
             }
-            // 分配人数：强制1个卧底，剩余平民
-            const spy = 1;
-            const civil = total - spy;
-            // 处理密码：自定义/自动生成（格式：总-卧底-平民_随机数）
-            let pwd = gamePwd.value.trim() || `${total}-${spy}-${civil}_${Math.floor(1000 + Math.random() * 9000)}`;
-            // 保存配置
-            gameConfig = { isSet: true, total, spy, civil, pwd };
-            // UI状态切换
-            playerCount.disabled = true;
-            gamePwd.disabled = true;
-            setConfig.style.display = 'none';
-            resetConfig.style.display = 'inline-block';
-            // 启用出题/查询按钮
-            numInput.disabled = false;
-            queryBtn.disabled = false;
-            randomBtn.disabled = false;
-            numInput.placeholder = `输入1-${validNums.length}的编号`;
-            // 提示密码（核心：房主把这个密码告诉所有玩家）
-            renderResult('success', `配置成功！游戏密码：${pwd}\n（所有人需用此密码验证，请勿泄露）`, `总${total}人 | 卧底${spy}人 | 平民${civil}人`);
-            configTip.innerText = `✅ 已配置：${total}人(卧底${spy}/平民${civil})，密码：${pwd}`;
+            // 计算平民数（固定1个卧底）
+            const civil = total - gameConfig.spy;
+            // 生成初始密码：格式「总人数-卧底数-平民数_初始标识」（例：4-1-3_INIT）
+            const initPwd = `${total}-${gameConfig.spy}-${civil}_INIT`;
+            // 更新全局配置
+            gameConfig = {
+                isInited: true,
+                total,
+                spy: gameConfig.spy,
+                civil,
+                currPwd: initPwd,
+                assigned: 0,
+                lastRole: '',
+                currNum: 0
+            };
+            // UI切换：隐藏房主输入框，显示操作区，提示房主密码
+            dom.ownerCount.style.display = 'none';
+            dom.genPwdBtn.style.display = 'none';
+            dom.playerPwd.style.display = 'block';
+            dom.verifyPwdBtn.style.display = 'block';
+            enableOperBtn(false); // 先禁用操作按钮，需密码验证后出题
+            // 渲染结果：提示房主初始密码，重点标注
+            renderResult('success', 
+                `✅ 初始密码生成成功！\n当前配置：${total}人（卧底1人/平民${civil}人）\n初始密码：\n<span class="pwd-text">${initPwd}</span>\n💡 请记住此密码，验证后即可出题`
+            );
+            dom.coreTip.innerText = `🔑 房主请输入上方初始密码完成验证，出题后密码将自动升级并告知下一位玩家`;
         }
 
-        // 3. 重置游戏配置
-        function resetGameConfig() {
-            gameConfig = { isSet: false, total: 0, spy: 0, civil: 0, pwd: '' };
-            playerCount.value = '';
-            gamePwd.value = '';
-            playerCount.disabled = false;
-            gamePwd.disabled = false;
-            setConfig.style.display = 'inline-block';
-            resetConfig.style.display = 'none';
-            numInput.disabled = true;
-            queryBtn.disabled = true;
-            randomBtn.disabled = true;
-            numInput.placeholder = '输入题目编号';
-            configTip.innerText = '👉 先设置玩家数，密码留空将自动生成（含人数/卧底数）';
-            renderResult('init', '已重置配置，请重新设置玩家数+密码');
-        }
-
-        // 4. 密码验证函数（所有操作前先验证）
-        function checkPwd() {
-            if (!gameConfig.isSet) {
-                renderResult('error', '请先点击【确认配置】完成人数+密码设置');
-                return false;
+        // 4. 密码验证（房主/玩家通用：输入密码匹配当前有效密码）
+        function verifyPlayerPwd() {
+            const inputPwd = dom.playerPwd.value.trim();
+            if (!inputPwd) {
+                renderResult('error', '❌ 请输入游戏密码');
+                dom.playerPwd.focus();
+                return;
             }
-            const inputPwd = prompt('请输入游戏密码：', '');
-            if (inputPwd !== gameConfig.pwd) {
-                renderResult('error', '密码错误！请确认密码后重试');
-                return false;
+            // 密码匹配验证
+            if (inputPwd !== gameConfig.currPwd) {
+                renderResult('error', '❌ 密码错误！请确认密码后重新输入');
+                dom.playerPwd.value = '';
+                dom.playerPwd.focus();
+                return;
             }
-            return true;
+            // 密码匹配成功：解析密码中的配置（兼容初始/升级密码）
+            parsePwdConfig(inputPwd);
+            // 清空密码输入框，启用操作区
+            dom.playerPwd.value = '';
+            enableOperBtn(true);
+            // 渲染成功提示
+            renderResult('success', 
+                `✅ 密码验证成功！\n当前配置：${gameConfig.total}人（卧底${gameConfig.spy}人/平民${gameConfig.civil}人）\n💡 已分配${gameConfig.assigned}人，你是第${gameConfig.assigned + 1}位玩家`
+            );
+            dom.coreTip.innerText = `✅ 验证成功！可选择【随机出题】或输入编号【查询】，出题后将获取新密码告知下一位玩家`;
         }
 
-        // 5. 随机出题（房主用，需密码验证）
+        // 5. 解析密码配置（核心：从密码中提取人数/身份等信息，同步全局）
+        function parsePwdConfig(pwd) {
+            // 拆分密码：按_拆分，前半部分是配置，后半部分是标识/身份
+            const [configStr, flag] = pwd.split('_');
+            const [total, spy, civil] = configStr.split('-').map(Number);
+            // 更新基础配置
+            gameConfig.total = total;
+            gameConfig.spy = spy;
+            gameConfig.civil = civil;
+            gameConfig.isInited = true;
+            // 区分初始密码/升级密码：升级密码含上一位身份
+            if (flag !== 'INIT') {
+                gameConfig.lastRole = flag; // 上一位身份（spy/civil）
+            }
+        }
+
+        // 6. 随机出题（房主/玩家验证后可操作，出题后自动升级密码）
         function randomGetWord() {
-            if (!checkPwd()) return;
-            if (validNums.length === 0) return;
-            const randomNum = validNums[Math.floor(Math.random() * validNums.length)];
-            const myWord = wordBank[randomNum][Math.floor(Math.random() * 2)];
-            renderResult('game', randomNum, myWord);
-            numInput.value = randomNum;
-        }
-
-        // 6. 编号查询（玩家用，需密码验证）
-        function getWordByNum() {
-            if (!checkPwd()) return;
-            const num = parseInt(numInput.value.trim());
-            if (!num || !validNums.includes(num)) {
-                renderResult('error', `请输入1-${validNums.length}的有效编号`);
-                numInput.focus();
+            if (validNums.length === 0) {
+                renderResult('error', '❌ 题库无有效题目，请检查格式');
                 return;
             }
-            const myWord = wordBank[num][Math.floor(Math.random() * 2)];
-            renderResult('game', num, myWord);
+            // 随机选择题目编号
+            const randomNum = validNums[Math.floor(Math.random() * validNums.length)];
+            gameConfig.currNum = randomNum;
+            dom.numInput.value = randomNum;
+            // 分配当前玩家身份，获取词语
+            assignRoleAndShowWord(randomNum);
         }
 
-        // 7. 统一结果渲染函数
-        function renderResult(type, msg1, msg2) {
+        // 7. 输入编号查询题目（验证后可操作，同步分配身份）
+        function getWordByNum() {
+            const num = parseInt(dom.numInput.value.trim());
+            // 验证编号有效性
+            if (!num || !validNums.includes(num)) {
+                renderResult('error', `❌ 请输入1-${validNums.length}的有效编号`);
+                dom.numInput.focus();
+                return;
+            }
+            gameConfig.currNum = num;
+            // 分配当前玩家身份，获取词语
+            assignRoleAndShowWord(num);
+        }
+
+        // 8. 身份分配+词语展示（核心逻辑：逐人分配，不重复，保证1卧底）
+        function assignRoleAndShowWord(num) {
+            let currRole = '';
+            const [spyWord, civilWord] = wordBank[num];
+            // 统计已分配的卧底/平民数
+            const assignedSpy = gameConfig.assigned - gameConfig.civil + (gameConfig.lastRole === 'civil' ? 1 : 0);
+            const assignedCivil = gameConfig.assigned - assignedSpy;
+            // 身份分配规则：
+            // 1. 未分配过：随机分配第一个身份（房主）
+            // 2. 已分配卧底数<1：优先分配卧底（保证至少1个）
+            // 3. 已分配卧底数=1：剩余全部分配平民
+            if (gameConfig.assigned === 0) {
+                currRole = Math.random() > 0.5 ? 'spy' : 'civil';
+            } else if (assignedSpy < gameConfig.spy) {
+                currRole = 'spy';
+            } else {
+                currRole = 'civil';
+            }
+            // 获取当前玩家的词语
+            const myWord = currRole === 'spy' ? spyWord : civilWord;
+            // 已分配人数+1
+            gameConfig.assigned += 1;
+            // 升级密码：格式「总人数-卧底数-平民数_当前身份」（例：4-1-3_spy）
+            const newPwd = `${gameConfig.total}-${gameConfig.spy}-${gameConfig.civil}_${currRole}`;
+            gameConfig.currPwd = newPwd;
+            gameConfig.lastRole = currRole;
+            // 渲染结果：显示编号+自己的词语，隐藏身份，提示新密码
+            renderResult('game', gameConfig.currNum, myWord, newPwd);
+            // 禁用操作按钮：避免重复出题，一人仅能获取一个词语
+            enableOperBtn(false);
+        }
+
+        // 9. 启用/禁用操作按钮（查询/随机出题）
+        function enableOperBtn(isEnable) {
+            if (isEnable) {
+                dom.numInput.disabled = false;
+                dom.queryBtn.classList.remove('btn-disabled');
+                dom.randomBtn.classList.remove('btn-disabled');
+                dom.numInput.placeholder = `输入1-${validNums.length}的编号`;
+            } else {
+                dom.numInput.disabled = true;
+                dom.queryBtn.classList.add('btn-disabled');
+                dom.randomBtn.classList.add('btn-disabled');
+            }
+        }
+
+        // 10. 重置所有配置（恢复初始状态）
+        function resetAllConfig() {
+            // 重置全局配置
+            gameConfig = {
+                isInited: false,
+                total: 0,
+                spy: 1,
+                civil: 0,
+                currPwd: '',
+                assigned: 0,
+                lastRole: '',
+                currNum: 0
+            };
+            // 重置UI
+            dom.ownerCount.value = '';
+            dom.playerPwd.value = '';
+            dom.numInput.value = '';
+            dom.ownerCount.style.display = 'block';
+            dom.genPwdBtn.style.display = 'block';
+            dom.playerPwd.style.display = 'none';
+            dom.verifyPwdBtn.style.display = 'none';
+            enableOperBtn(false);
+            // 重置提示
+            dom.coreTip.innerHTML = `
+                <span class="owner">👉 房主操作</span>：输入总玩家数（≥2）→点击【生成初始密码】；<br>
+                <span class="player">👉 玩家操作</span>：等待房主告知密码→输入后点击【验证密码】
+            `;
+            // 渲染初始结果
+            renderResult('init', '✅ 已重置所有配置，请重新按提示操作');
+        }
+
+        // 11. 统一结果渲染函数（所有页面提示/结果都走这里，样式统一）
+        function renderResult(type, ...args) {
+            const resultBox = dom.resultBox;
             switch (type) {
+                case 'loading':
+                    resultBox.innerHTML = `<div class="loading">${args[0]}</div>`;
+                    break;
                 case 'init':
-                    resultBox.innerHTML = `<div class="init">${msg1}</div>`;
+                    resultBox.innerHTML = `<div class="init">${args[0]}</div>`;
                     break;
                 case 'error':
-                    resultBox.innerHTML = `<div class="error">${msg1}</div>`;
+                    resultBox.innerHTML = `<div class="error">${args[0]}</div>`;
                     break;
                 case 'success':
-                    resultBox.innerHTML = `<div class="success">${msg1}</div><div class="success">${msg2}</div>`;
+                    resultBox.innerHTML = `<div class="success">${args[0]}</div>`;
                     break;
-                case 'game':
-                    resultBox.innerHTML = `<div class="num-text">题目编号：${msg1}</div><div class="word-text">${msg2}</div>`;
+                case 'game': // 出题成功：编号+词语+新密码
+                    const [num, word, newPwd] = args;
+                    resultBox.innerHTML = `
+                        <div class="num-text">题目编号：${num}</div>
+                        <div class="word-text">${word}</div>
+                        <div class="success" style="margin-top:10px;">✅ 你已获取专属词语（仅自己可见）</div>
+                        <div class="success">💡 新密码：<span class="pwd-text">${newPwd}</span></div>
+                        <div class="success" style="font-size:12px;margin-top:5px;">请将新密码告知下一位玩家</div>
+                    `;
                     break;
-                default:
-                    resultBox.innerHTML = `<div class="loading">${msg1}</div>`;
             }
         }
     </script>
