@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>谁是卧底 编号出题工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "微软雅黑", sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .sub-title {
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .input-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            outline: none;
+        }
+        input:focus {
+            border-color: #4285f4;
+        }
+        button {
+            padding: 12px 20px;
+            background: #4285f4;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        .result {
+            text-align: center;
+            font-size: 18px;
+            color: #333;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 12px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .result .error {
+            color: #f44336;
+            font-size: 16px;
+        }
+        .result .success {
+            color: #2ecc71;
+            font-size: 16px;
+        }
+        .word {
+            font-weight: bold;
+            color: #4285f4;
+            font-size: 22px;
+        }
+        .tip-box {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.6;
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 6px;
+        }
+        .tip-box p {
+            margin: 3px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>谁是卧底 编号出题</h1>
+        <div class="sub-title">服务器版 | 自动读取title.txt题库</div>
+        <div class="input-box">
+            <input type="number" id="numInput" placeholder="输入题目编号" min="1" step="1">
+            <button onclick="getWord()">查询题目</button>
+        </div>
+        <div class="result" id="resultBox">
+            <div>正在加载题库...</div>
+            <div class="success" id="loadTip"></div>
+        </div>
+        <div class="tip-box">
+            <p>📌 部署说明：1. HTML与title.txt放服务器同目录 2. txt格式：一行一组「卧底词/平民词」3. 编号按行序自动生成</p>
+            <p>🔍 英文对照：卧底词=Spy's word | 平民词=Civilian's word</p>
+        </div>
+    </div>
+
+    <script>
+        // 全局题库数据
+        let wordBank = {};
+        // 页面加载立即读取题库
+        window.onload = function() {
+            readTxtFromServer();
+        };
+
+        // 服务器端读取title.txt（适配nginx/apache等主流服务器）
+        function readTxtFromServer() {
+            const resultBox = document.getElementById("resultBox");
+            const loadTip = document.getElementById("loadTip");
+            // 使用fetch请求（比AJAX更兼容服务器环境）
+            fetch('title.txt', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('文件不存在或读取失败');
+                }
+                return response.text();
+            })
+            .then(text => {
+                // 解析txt内容，按行分割并过滤空行/空白行
+                const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+                if (lines.length === 0) {
+                    loadTip.textContent = "⚠️ 题库为空，请检查title.txt";
+                    loadTip.className = "error";
+                    return;
+                }
+                // 遍历生成题库，编号从1开始
+                lines.forEach((line, index) => {
+                    const lineTrim = line.trim();
+                    const [spyWord, civilWord] = lineTrim.split('/');
+                    // 验证格式是否正确（必须有斜杠，且两边都有词）
+                    if (spyWord && civilWord && spyWord.trim() && civilWord.trim()) {
+                        wordBank[index + 1] = [spyWord.trim(), civilWord.trim()];
+                    }
+                });
+                // 验证有效题目数量
+                const validCount = Object.keys(wordBank).length;
+                if (validCount === 0) {
+                    loadTip.textContent = "⚠️ 题库格式错误，需按「词/词」编写";
+                    loadTip.className = "error";
+                } else {
+                    resultBox.innerHTML = '<div>请输入编号，点击查询获取题目</div><div id="loadTip" class="success"></div>';
+                    loadTip.textContent = `✅ 成功加载${validCount}道有效题目`;
+                    // 设置输入框最大编号
+                    document.getElementById("numInput").max = validCount;
+                }
+            })
+            .catch(error => {
+                resultBox.innerHTML = '<div class="error">❌ 题库读取失败</div><div id="loadTip" class="error"></div>';
+                loadTip.textContent = "请检查title.txt是否在同目录，且服务器开启静态文件访问";
+                console.log('读取错误：', error);
+            });
+        }
+
+        // 编号查询题目核心函数
+        function getWord() {
+            const input = document.getElementById("numInput");
+            const resultBox = document.getElementById("resultBox");
+            const num = parseInt(input.value.trim());
+            const maxNum = Object.keys(wordBank).length;
+
+            // 清空输入框
+            input.value = "";
+
+            // 验证输入合法性
+            if (isNaN(num) || num < 1 || num > maxNum) {
+                resultBox.innerHTML = `
+                    <div class="error">请输入1-${maxNum}的有效编号</div>
+                    <div>当前题库共${maxNum}道题</div>
+                `;
+                return;
+            }
+
+            // 展示题目（中英对照）
+            const [spyWord, civilWord] = wordBank[num];
+            resultBox.innerHTML = `
+                <div>编号 ${num} | 卧底词：<span class="word">${spyWord}</span></div>
+                <div>编号 ${num} | 平民词：<span class="word">${civilWord}</span></div>
+                <div style="font-size:14px;color:#999;">Spy's word | Civilian's word</div>
+            `;
+        }
+
+        // 按回车键触发查询（便捷操作）
+        document.getElementById("numInput").addEventListener("keydown", function(e) {
+            if (e.key === "Enter") getWord();
+        });
+    </script>
+</body>
+</html>
+
