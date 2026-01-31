@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>谁是卧底 - 房间版</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.7/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            padding: 30px 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            color: #2d3748;
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .header .sub {
+            color: #718096;
+            font-size: 13px;
+        }
+        .part-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #2d3748;
+            margin: 20px 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .part-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: #667eea;
+            border-radius: 2px;
+        }
+        .oper-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .input-item {
+            flex: 1;
+            min-width: 180px;
+            padding: 12px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .input-item:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .input-item[readonly] {
+            background: #f7fafc;
+            cursor: not-allowed;
+        }
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #fff;
+        }
+        .create-btn {
+            background: #38b2ac;
+        }
+        .create-btn:hover {
+            background: #319795;
+        }
+        .join-btn {
+            background: #667eea;
+        }
+        .join-btn:hover {
+            background: #5a6edb;
+        }
+        .reset-btn {
+            background: #ed8936;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .reset-btn:hover {
+            background: #dd7b2f;
+        }
+        .game-oper {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        #numInput {
+            flex: 1;
+            padding: 14px 18px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            color: #2d3748;
+            outline: none;
+        }
+        #numInput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        #numInput[readonly] {
+            background: #f7fafc;
+            cursor: not-allowed;
+        }
+        .game-btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #fff;
+        }
+        .random-btn {
+            background: #38b2ac;
+        }
+        .random-btn:hover {
+            background: #319795;
+        }
+        .query-btn {
+            background: #667eea;
+        }
+        .query-btn:hover {
+            background: #5a6edb;
+        }
+        .btn-disabled {
+            background: #bcc2e2 !important;
+            cursor: not-allowed !important;
+        }
+        .result-box {
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px 15px;
+            background: #f7fafc;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            white-space: pre-wrap;
+        }
+        .result-box .error {
+            color: #e53e3e;
+            font-size: 15px;
+        }
+        .result-box .success {
+            color: #38b2ac;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .result-box .room-text {
+            color: #e53e3e;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin: 5px 0;
+        }
+        .result-box .num-text {
+            color: #38b2ac;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .result-box .word-text {
+            color: #667eea;
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            margin-top: 5px;
+        }
+        .result-box .lock-text {
+            color: #ed8936;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .tip-box {
+            background: #edf2f7;
+            border-radius: 12px;
+            padding: 12px 15px;
+            font-size: 12px;
+            color: #718096;
+            line-height: 1.8;
+        }
+        .room-tip {
+            font-size:12px;color:#718096;margin-bottom:15px;text-align:center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>谁是卧底 - 房间版</h1>
+            <div class="sub">房间联动 | 强制同题 | 房主选题 <span id="bankCount"></span></div>
+        </div>
+
+        <!-- 房间核心操作区：创建/加入 -->
+        <div class="part-title">🏠 房间管理</div>
+        <div class="oper-group">
+            <input type="number" class="input-item" id="playerCount" placeholder="总玩家数（≥2，房主填）" min="2">
+            <button class="btn create-btn" id="createRoomBtn">创建房间</button>
+        </div>
+        <div class="oper-group">
+            <input type="text" class="input-item" id="roomIdInput" placeholder="输入6位房间号（玩家填）" maxlength="6">
+            <button class="btn join-btn" id="joinRoomBtn">加入房间</button>
+        </div>
+        <div class="room-tip">💡 房主先填人数创建房间，玩家输入房间号加入，无需密码</div>
+
+        <!-- 全局重置按钮 -->
+        <button class="btn reset-btn" id="resetBtn">重置房间（新游戏）</button>
+
+        <!-- 出题操作区（加入房间后启用） -->
+        <div class="part-title">🎲 出题区 <span id="lockTip" style="font-size:12px;color:#ed8936;"></span></div>
+        <div class="game-oper">
+            <input type="number" id="numInput" placeholder="输入题目编号" disabled>
+            <button class="game-btn random-btn btn-disabled" id="randomBtn">房主随机选题</button>
+            <button class="game-btn query-btn btn-disabled" id="queryBtn">获取专属词语</button>
+        </div>
+
+        <!-- 结果展示区 -->
+        <div class="result-box" id="resultBox">
+            <div style="color:#718096;">✅ 等待加载题库...</div>
+        </div>
+
+        <!-- 部署提示 -->
+        <div class="tip-box">
+            <p>📌 部署：HTML与title.txt同目录，txt一行一组「卧底词/平民词」</p>
+            <p>🔒 核心规则：房主选题后编号锁定，房间内所有人强制同一题</p>
+            <p>🎮 流程：房主创房间→玩家加房间→房主随机选题→依次点击获取词语</p>
+            <p>💻 后端：Node.js+Express，免费部署至Replit/Vercel，无数据库轻量运行</p>
+        </div>
+    </div>
+
+    <script>
+        // 配置后端地址（本地测试/免费部署后替换为你的后端地址）
+        const BASE_URL = 'https://spy.up.railway.app:3000'; 
+        // 全局配置
+        let gameConfig = {
+            isInRoom: false, // 是否已加入/创建房间
+            roomId: '',      // 当前房间号
+            isOwner: false,  // 是否是房主
+            total: 0,        // 总玩家数
+            lockNum: 0,      // 锁定的题目编号
+            isLock: false    // 题目是否锁定
+        };
+        let wordBank = {}; // 题库
+        let validNums = []; // 有效题目编号
+
+        // DOM元素
+        const dom = {
+            playerCount: document.getElementById('playerCount'),
+            createRoomBtn: document.getElementById('createRoomBtn'),
+            roomIdInput: document.getElementById('roomIdInput'),
+            joinRoomBtn: document.getElementById('joinRoomBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            numInput: document.getElementById('numInput'),
+            randomBtn: document.getElementById('randomBtn'),
+            queryBtn: document.getElementById('queryBtn'),
+            resultBox: document.getElementById('resultBox'),
+            bankCount: document.getElementById('bankCount'),
+            lockTip: document.getElementById('lockTip')
+        };
+
+        // 页面加载初始化
+        window.onload = function() {
+            readTxtFromServer();
+            bindAllEvents();
+            // 限制房间号仅输入数字
+            dom.roomIdInput.oninput = function() {
+                this.value = this.value.replace(/\D/g, '');
+            };
+        };
+
+        // 1. 绑定所有事件
+        function bindAllEvents() {
+            // 创建房间（房主）
+            dom.createRoomBtn.addEventListener('click', createRoom);
+            // 加入房间（玩家）
+            dom.joinRoomBtn.addEventListener('click', joinRoom);
+            // 重置房间
+            dom.resetBtn.addEventListener('click', resetRoom);
+            // 房主随机选题并锁定
+            dom.randomBtn.addEventListener('click', randomAndLockNum);
+            // 获取专属词语
+            dom.queryBtn.addEventListener('click', getWord);
+            // 回车触发
+            dom.numInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter' && !dom.queryBtn.classList.contains('btn-disabled')) {
+                    randomAndLockNum();
+                }
+            });
+        }
+
+        // 2. 房主创建房间 - 对接后端
+        async function createRoom() {
+            const total = parseInt(dom.playerCount.value.trim());
+            if (isNaN(total) || total < 2) {
+                renderResult('error', '❌ 总玩家数必须≥2，请重新输入');
+                dom.playerCount.focus();
+                return;
+            }
+            try {
+                const res = await axios.post(`${BASE_URL}/api/createRoom`, { total });
+                if (res.data.code !== 0) {
+                    return renderResult('error', res.data.msg);
+                }
+                const { roomId } = res.data.data;
+                // 更新全局配置
+                gameConfig = {
+                    isInRoom: true,
+                    roomId,
+                    isOwner: true,
+                    total,
+                    lockNum: 0,
+                    isLock: false
+                };
+                // UI反馈
+                dom.roomIdInput.value = roomId;
+                enableGameOper(true, true); // 房主启用所有出题按钮
+                renderResult('success', 
+                    `✅ 房间创建成功！\n你的6位房间号：\n<span class="room-text">${roomId}</span>\n请告知玩家输入此号加入，点击【房主随机选题】开始游戏`
+                );
+                dom.lockTip.innerText = '（房主可随机选题并锁定，所有人强制用此题）';
+            } catch (err) {
+                renderResult('error', '❌ 房间创建失败，请检查后端是否运行');
+                console.error(err);
+            }
+        }
+
+        // 3. 玩家加入房间 - 对接后端
+        async function joinRoom() {
+            const roomId = dom.roomIdInput.value.trim();
+            if (!roomId || roomId.length !== 6) {
+                renderResult('error', '❌ 请输入6位数字房间号');
+                dom.roomIdInput.focus();
+                return;
+            }
+            try {
+                const res = await axios.post(`${BASE_URL}/api/joinRoom`, { roomId });
+                if (res.data.code !== 0) {
+                    return renderResult('error', res.data.msg);
+                }
+                const { isLock, lockNum, total } = res.data.data;
+                // 更新全局配置
+                gameConfig = {
+                    isInRoom: true,
+                    roomId,
+                    isOwner: false,
+                    total,
+                    lockNum,
+                    isLock
+                };
+                // 玩家UI逻辑
+                if (isLock) {
+                    // 房主已锁定，自动填充编号并只读
+                    dom.numInput.value = lockNum;
+                    dom.numInput.readOnly = true;
+                    enableGameOper(true, false); // 玩家禁用随机，启用查询
+                    renderResult('success', 
+                        `✅ 加入房间成功！\n房间总人数：${total}人\n房主已锁定题目编号：${lockNum}\n点击【获取专属词语】领取你的词`
+                    );
+                } else {
+                    // 房主未锁定，提示等待
+                    enableGameOper(false, false);
+                    renderResult('success', 
+                        `✅ 加入房间成功！\n房间总人数：${total}人\n请等待房主选题并锁定后再操作`
+                    );
+                }
+                dom.lockTip.innerText = isLock ? `（已锁定编号：${lockNum}）` : '（房主尚未选题）';
+            } catch (err) {
+                renderResult('error', '❌ 加入房间失败，请检查后端是否运行或房间号是否正确');
+                console.error(err);
+            }
+        }
+
+        // 4. 房主随机选题并锁定 - 对接后端
+        async function randomAndLockNum() {
+            if (!gameConfig.isInRoom || !gameConfig.isOwner) {
+                renderResult('error', '❌ 只有房主可以选题！');
+                return;
+            }
+            if (validNums.length === 0) return renderResult('error', '❌ 题库无有效题目');
+            
+            // 随机选编号
+            const randomNum = validNums[Math.floor(Math.random() * validNums.length)];
+            try {
+                // 后端锁定编号
+                const res = await axios.post(`${BASE_URL}/api/lockNum`, {
+                    roomId: gameConfig.roomId,
+                    num: randomNum
+                });
+                if (res.data.code !== 0) {
+                    return renderResult('error', res.data.msg);
+                }
+                // 更新全局配置
+                gameConfig.lockNum = randomNum;
+                gameConfig.isLock = true;
+                // UI更新
+                dom.numInput.value = randomNum;
+                dom.numInput.readOnly = true;
+                enableGameOper(true, false); // 锁定后禁用随机选题
+                renderResult('success', 
+                    `✅ 选题成功！\n已锁定题目编号：<span class="num-text">${randomNum}</span>\n所有玩家将强制使用此题，请依次点击【获取专属词语】`
+                );
+                dom.lockTip.innerText = `（已锁定题目编号：${randomNum}，所有人强制用此题）`;
+            } catch (err) {
+                renderResult('error', '❌ 编号锁定失败，请检查后端');
+                console.error(err);
+            }
+        }
+
+        // 5. 获取专属词语 - 对接后端分配身份
+        async function getWord() {
+            if (!gameConfig.isInRoom) {
+                return renderResult('error', '❌ 请先创建/加入房间');
+            }
+            try {
+                const res = await axios.post(`${BASE_URL}/api/getWord`, {
+                    roomId: gameConfig.roomId
+                });
+                if (res.data.code === -1) {
+                    return renderResult('error', res.data.msg);
+                }
+                if (res.data.code === -2) {
+                    return renderResult('error', res.data.msg);
+                }
+                const { currRole, lockNum } = res.data.data;
+                const [spyWord, civilWord] = wordBank[lockNum];
+                const myWord = currRole === 'spy' ? spyWord : civilWord;
+                // 展示结果
+                renderResult('game', lockNum, myWord, currRole);
+                // 禁用获取按钮，一人一次
+                dom.queryBtn.classList.add('btn-disabled');
+            } catch (err) {
+                renderResult('error', '❌ 身份获取失败，请稍后再试');
+                console.error(err);
+            }
+        }
+
+        // 6. 重置房间 - 对接后端
+        async function resetRoom() {
+            if (!gameConfig.isInRoom) {
+                renderResult('error', '❌ 请先创建/加入房间');
+                return;
+            }
+            try {
+                // 房主才可以重置房间
+                if (gameConfig.isOwner) {
+                    const res = await axios.post(`${BASE_URL}/api/resetRoom`, {
+                        roomId: gameConfig.roomId
+                    });
+                    if (res.data.code !== 0) {
+                        return renderResult('error', res.data.msg);
+                    }
+                }
+                // 重置前端配置和UI
+                gameConfig.lockNum = 0;
+                gameConfig.isLock = false;
+                dom.playerCount.value = '';
+                dom.roomIdInput.value = '';
+                dom.numInput.value = '';
+                dom.numInput.readOnly = false;
+                dom.lockTip.innerText = '';
+                enableGameOper(false, false);
+                // 房主保留房间号，玩家清空
+                if (gameConfig.isOwner) {
+                    dom.roomIdInput.value = gameConfig.roomId;
+                    renderResult('success', `✅ 房间已重置！\n你的房间号：<span class="room-text">${gameConfig.roomId}</span>\n可重新点击【房主随机选题】开始新游戏`);
+                } else {
+                    gameConfig.isInRoom = false;
+                    renderResult('success', '✅ 已退出房间，可输入新房间号加入');
+                }
+            } catch (err) {
+                renderResult('error', '❌ 房间重置失败，请检查后端');
+                console.error(err);
+            }
+        }
+
+        // 7. 读取本地题库（原逻辑保留）
+        function readTxtFromServer() {
+            fetch('title.txt', {
+                method: 'GET', headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+            })
+            .then(res => res.ok ? res.text() : Promise.reject('文件异常'))
+            .then(text => {
+                const lines = text.split(/\r?\n/).filter(line => line.trim().replace(/\s+/g, '') !== '');
+                if (lines.length === 0) return renderResult('error', '❌ 题库为空，请检查title.txt');
+                lines.forEach((line, idx) => {
+                    const [spyWord, civilWord] = line.trim().replace(/\s*\/\s*/, '/').split('/');
+                    if (spyWord && civilWord) wordBank[idx + 1] = [spyWord.trim(), civilWord.trim()];
+                });
+                validNums = Object.keys(wordBank).map(Number).sort((a, b) => a - b);
+                dom.bankCount.innerText = `(${validNums.length}题)`;
+                renderResult('success', `✅ 题库加载完成，共${validNums.length}道有效题目`);
+            })
+            .catch(err => {
+                renderResult('error', '❌ 题库读取失败！请检查文件是否同目录');
+                console.log(err);
+            });
+        }
+
+        // 8. 启用/禁用出题按钮
+        function enableGameOper(isEnable, canRandom) {
+            dom.numInput.disabled = !isEnable;
+            dom.queryBtn.classList.toggle('btn-disabled', !isEnable);
+            dom.randomBtn.classList.toggle('btn-disabled', !canRandom || !isEnable);
+            if (isEnable) dom.numInput.placeholder = `输入1-${validNums.length}的编号`;
+        }
+
+        // 9. 统一结果渲染
+        function renderResult(type, ...args) {
+            const box = dom.resultBox;
+            switch (type) {
+                case 'error':
+                    box.innerHTML = `<div class="error">${args[0]}</div>`;
+                    break;
+                case 'success':
+                    box.innerHTML = `<div class="success">${args[0]}</div>`;
+                    break;
+                case 'game':
+                    const [num, word, role] = args;
+                    const roleText = role === 'spy' ? '卧底' : '平民';
+                    box.innerHTML = `
+                        <div class="num-text">题目编号：${num}</div>
+                        <div class="word-text">${word}</div>
+                        <div class="success">✅ 你的身份：${roleText}</div>
+                        <div class="success">✅ 专属词语已获取（仅自己可见）</div>
+                        <div class="lock-text">🔒 房间内所有人强制使用此题</div>
+                    `;
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>
