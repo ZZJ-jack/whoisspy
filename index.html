@@ -226,6 +226,21 @@
         .copy-btn:hover {
             background:#5a6edb;
         }
+        .role-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 5px 0;
+        }
+        .spy-badge {
+            background: #feb2b2;
+            color: #9b2c2c;
+        }
+        .civil-badge {
+            background: #9ae6b4;
+            color: #276749;
+        }
     </style>
 </head>
 <body>
@@ -344,6 +359,7 @@
                     // 已获取词语则禁用查询按钮
                     if (gameConfig.hasGetWord) {
                         dom.queryBtn.classList.add('btn-disabled');
+                        dom.queryBtn.disabled = true;
                     }
                 }
             }
@@ -396,14 +412,31 @@
             dom.createRoomBtn.classList.remove('btn-disabled');
             dom.joinRoomBtn.classList.remove('btn-disabled');
             dom.resetBtn.classList.remove('btn-disabled');
+            
             // 恢复游戏操作按钮
             if (gameConfig.isInRoom) {
-                enableGameOper(true, gameConfig.isOwner && !gameConfig.isLock);
-                if (gameConfig.hasGetWord) {
+                dom.numInput.disabled = false;
+                if (gameConfig.isOwner && !gameConfig.isLock) {
+                    dom.randomBtn.disabled = false;
+                    dom.randomBtn.classList.remove('btn-disabled');
+                } else {
+                    dom.randomBtn.disabled = true;
+                    dom.randomBtn.classList.add('btn-disabled');
+                }
+                
+                if (!gameConfig.hasGetWord) {
+                    dom.queryBtn.disabled = false;
+                    dom.queryBtn.classList.remove('btn-disabled');
+                } else {
+                    dom.queryBtn.disabled = true;
                     dom.queryBtn.classList.add('btn-disabled');
                 }
             } else {
-                enableGameOper(false, false);
+                dom.numInput.disabled = true;
+                dom.randomBtn.disabled = true;
+                dom.queryBtn.disabled = true;
+                dom.randomBtn.classList.add('btn-disabled');
+                dom.queryBtn.classList.add('btn-disabled');
             }
         }
 
@@ -576,22 +609,31 @@
                 if (res.data.code === -2) {
                     return renderResult('error', res.data.msg);
                 }
-                // 处理后端超量获取身份
                 if (res.data.code === -3) {
                     renderResult('error', res.data.msg);
+                    gameConfig.hasGetWord = true;
+                    saveGameConfig();
                     dom.queryBtn.classList.add('btn-disabled');
+                    dom.queryBtn.disabled = true;
                     return;
                 }
                 const { currRole, lockNum } = res.data.data;
+                // 检查题库是否有该题目
+                if (!wordBank[lockNum]) {
+                    return renderResult('error', `❌ 题库中没有编号为${lockNum}的题目`);
+                }
+                
                 const [spyWord, civilWord] = wordBank[lockNum];
                 const myWord = currRole === 'spy' ? spyWord : civilWord;
+                const roleName = currRole === 'spy' ? '卧底' : '平民';
                 // 更新状态
                 gameConfig.hasGetWord = true;
                 saveGameConfig();
                 // 展示结果
-                renderResult('game', lockNum, myWord, currRole);
+                renderResult('game', lockNum, myWord, roleName, currRole);
                 // 禁用获取按钮
                 dom.queryBtn.classList.add('btn-disabled');
+                dom.queryBtn.disabled = true;
             } catch (err) {
                 renderResult('error', '❌ 身份获取失败，请稍后再试');
                 console.error(err);
@@ -634,6 +676,7 @@
                 dom.roomIdInput.value = '';
                 dom.numInput.value = '';
                 dom.numInput.readOnly = false;
+                dom.numInput.disabled = false;
                 dom.playerCount.readOnly = false;
                 dom.roomIdInput.readOnly = false;
                 dom.playerCount.style.background = '';
@@ -652,26 +695,57 @@
         // 10. 读取本地题库（过滤注释、空行）
         function readTxtFromServer() {
             fetch('title.txt', {
-                method: 'GET', headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                method: 'GET', 
+                headers: { 'Content-Type': 'text/plain; charset=utf-8' }
             })
-            .then(res => res.ok ? res.text() : Promise.reject('文件异常'))
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error('题库文件不存在');
+                }
+                return res.text();
+            })
             .then(text => {
                 // 过滤：注释行(//、#开头)、纯空格行、空行
                 const lines = text.split(/\r?\n/).filter(line => {
                     const trimLine = line.trim();
                     return trimLine !== '' && !trimLine.startsWith('//') && !trimLine.startsWith('#');
                 });
-                if (lines.length === 0) return renderResult('error', '❌ 题库为空，请检查title.txt');
-                // 解析题库
+                
+                if (lines.length === 0) {
+                    isBankLoaded = false;
+                    return renderResult('error', '❌ 题库为空，请检查title.txt格式');
+                }
+                
+                // 解析题库，支持多种分隔符：/ 或 |
                 lines.forEach((line, idx) => {
-                    const [spyWord, civilWord] = line.trim().replace(/\s*\/\s*/, '/').split('/');
-                    if (spyWord && civilWord) wordBank[idx + 1] = [spyWord.trim(), civilWord.trim()];
+                    const trimLine = line.trim();
+                    // 尝试多种分隔符
+                    let separator = '/';
+                    if (trimLine.includes('|')) separator = '|';
+                    
+                    const parts = trimLine.split(separator);
+                    if (parts.length >= 2) {
+                        const spyWord = parts[0].trim();
+                        const civilWord = parts[1].trim();
+                        if (spyWord && civilWord) {
+                            wordBank[idx + 1] = [spyWord, civilWord];
+                        }
+                    }
                 });
+                
                 validNums = Object.keys(wordBank).map(Number).sort((a, b) => a - b);
+                if (validNums.length === 0) {
+                    isBankLoaded = false;
+                    return renderResult('error', '❌ 题库格式错误，请使用"卧底词/平民词"格式');
+                }
+                
                 // 动态设置题目编号最大值
-                dom.numInput.max = validNums[validNums.length - 1] || 1;
+                const maxNum = validNums[validNums.length - 1];
+                dom.numInput.max = maxNum;
+                dom.numInput.placeholder = `输入1-${maxNum}的编号`;
                 dom.bankCount.innerText = `(${validNums.length}题)`;
                 isBankLoaded = true; // 标记题库加载完成
+                
                 // 恢复按钮状态（若已有游戏状态）
                 if (gameConfig.isInRoom) {
                     enableGameOper(true, gameConfig.isOwner && !gameConfig.isLock);
@@ -680,8 +754,8 @@
             })
             .catch(err => {
                 isBankLoaded = false;
-                renderResult('error', '❌ 题库读取失败！请检查文件是否同目录');
-                console.log(err);
+                renderResult('error', '❌ 题库读取失败！请检查title.txt文件是否同目录');
+                console.error('题库读取错误:', err);
             });
         }
 
@@ -689,14 +763,24 @@
         function enableGameOper(isEnable, canRandom) {
             if (!isBankLoaded) { // 题库未加载，直接禁用所有
                 dom.numInput.disabled = true;
+                dom.queryBtn.disabled = true;
+                dom.randomBtn.disabled = true;
                 dom.queryBtn.classList.add('btn-disabled');
                 dom.randomBtn.classList.add('btn-disabled');
                 return;
             }
+            
             dom.numInput.disabled = !isEnable;
-            dom.queryBtn.classList.toggle('btn-disabled', !isEnable);
-            dom.randomBtn.classList.toggle('btn-disabled', !canRandom || !isEnable);
-            if (isEnable) dom.numInput.placeholder = `输入1-${validNums.length}的编号`;
+            dom.queryBtn.disabled = !isEnable || gameConfig.hasGetWord;
+            dom.randomBtn.disabled = !isEnable || !canRandom;
+            
+            dom.queryBtn.classList.toggle('btn-disabled', !isEnable || gameConfig.hasGetWord);
+            dom.randomBtn.classList.toggle('btn-disabled', !isEnable || !canRandom);
+            
+            if (isEnable) {
+                const maxNum = validNums[validNums.length - 1] || 1;
+                dom.numInput.placeholder = `输入1-${maxNum}的编号`;
+            }
         }
 
         // 12. 统一结果渲染
@@ -710,12 +794,12 @@
                     box.innerHTML = `<div class="success">${args[0]}</div>`;
                     break;
                 case 'game':
-                    const [num, word, role] = args;
-                    const roleText = role === 'spy' ? '卧底' : '平民';
+                    const [num, word, roleName, roleType] = args;
+                    const badgeClass = roleType === 'spy' ? 'spy-badge' : 'civil-badge';
                     box.innerHTML = `
                         <div class="num-text">题目编号：${num}</div>
                         <div class="word-text">${word}</div>
-                        <div class="success">✅ 你的身份：${roleText}</div>
+                        <div class="${badgeClass} role-badge">${roleName}</div>
                         <div class="success">✅ 专属词语已获取（仅自己可见）</div>
                         <div class="lock-text">🔒 房间内所有人强制使用此题</div>
                     `;
