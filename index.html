@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>谁是卧底 - 房间版</title>
+    <title>谁是卧底</title>
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.7/dist/axios.min.js"></script>
     <style>
         * {
@@ -225,8 +225,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>谁是卧底 - 房间版</h1>
-            <div class="sub">房间联动 | 强制同题 | 房主选题 <span id="bankCount"></span></div>
+            <h1>谁是卧底</h1>
+            <div class="sub">简单易用 | 强制同题 | 房主选题 <span id="bankCount"></span></div>
         </div>
 
         <!-- 房间核心操作区：创建/加入 -->
@@ -262,7 +262,8 @@
             <p>📌 部署：HTML与title.txt同目录，txt一行一组「卧底词/平民词」</p>
             <p>🔒 核心规则：房主选题后编号锁定，房间内所有人强制同一题</p>
             <p>🎮 流程：房主创房间→玩家加房间→房主随机选题→依次点击获取词语</p>
-            <p>💻 后端：Node.js+Express，免费部署至Replit/Vercel，无数据库轻量运行</p>
+            <p>🌐 前端：html+css+js，部署至CloudFlare Pages，纯静态页面（使用api调用后端）</p>
+            <p>💻 后端：Node.js，部署至CloudFlare Workers，无数据库轻量运行</p>
         </div>
     </div>
 
@@ -353,7 +354,7 @@
                 dom.roomIdInput.value = roomId;
                 enableGameOper(true, true); // 房主启用所有出题按钮
                 renderResult('success', 
-                    `✅ 房间创建成功！\n你的6位房间号：\n<span class="room-text">${roomId}</span>\n请告知玩家输入此号加入，点击【房主随机选题】开始游戏`
+                    `✅ 房间创建成功！\n你的6位房间号：\n<span class="room-text">${roomId}</span>\n请告知玩家输入此号加入（所有玩家加入后自动销毁房间），\n请点击【房主随机选题】开始游戏`
                 );
                 dom.lockTip.innerText = '（房主可随机选题并锁定，所有人强制用此题）';
             } catch (err) {
