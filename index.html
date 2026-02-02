@@ -490,7 +490,7 @@
             localStorage.setItem('spyGameConfig', JSON.stringify(gameConfig));
         }
 
-        // 5. 房主创建房间 - 对接后端
+        // 5. 房主创建房间 - 使用 GET 请求
         async function createRoom() {
             if (isRequesting) return;
             const total = parseInt(dom.playerCount.value.trim());
@@ -501,7 +501,7 @@
             }
             startRequest();
             try {
-                const res = await axios.post(`${BASE_URL}/api/createRoom`, { total });
+                const res = await axios.get(`${BASE_URL}/api/createRoom?total=${total}`);
                 if (res.data.code !== 0) {
                     return renderResult('error', res.data.msg);
                 }
@@ -546,7 +546,7 @@
             }
         }
 
-        // 6. 玩家加入房间 - 对接后端
+        // 6. 玩家加入房间 - 使用 GET 请求
         async function joinRoom() {
             if (isRequesting) return;
             const roomId = dom.roomIdInput.value.trim();
@@ -557,7 +557,7 @@
             }
             startRequest();
             try {
-                const res = await axios.post(`${BASE_URL}/api/joinRoom`, { roomId });
+                const res = await axios.get(`${BASE_URL}/api/joinRoom?roomId=${roomId}`);
                 if (res.data.code !== 0) {
                     return renderResult('error', res.data.msg);
                 }
@@ -598,7 +598,7 @@
             }
         }
 
-        // 7. 房主随机选题并锁定 - 对接后端
+        // 7. 房主随机选题并锁定 - 使用 GET 请求
         async function randomAndLockNum() {
             if (isRequesting) return;
             if (!gameConfig.isInRoom || !gameConfig.isOwner) {
@@ -612,9 +612,9 @@
             
             // 先尝试获取题库信息，了解题目范围
             try {
-                const bankRes = await axios.post(`${BASE_URL}/api/getBankInfo`);
-                if (bankRes.data.code === 0) {
-                    const { minNum, maxNum } = bankRes.data.data;
+                const res = await axios.get(`${BASE_URL}/api/getBankInfo`);
+                if (res.data.code === 0) {
+                    const { total, minNum, maxNum } = res.data.data;
                     
                     // 如果用户输入了有效编号
                     if (!isNaN(inputNum) && inputNum >= minNum && inputNum <= maxNum) {
@@ -638,10 +638,7 @@
             
             startRequest();
             try {
-                const res = await axios.post(`${BASE_URL}/api/lockNum`, {
-                    roomId: gameConfig.roomId,
-                    num: numToLock
-                });
+                const res = await axios.get(`${BASE_URL}/api/lockNum?roomId=${gameConfig.roomId}&num=${numToLock}`);
                 if (res.data.code !== 0) {
                     return renderResult('error', res.data.msg);
                 }
@@ -665,7 +662,7 @@
             }
         }
 
-        // 8. 获取专属词语 - 对接后端分配身份
+        // 8. 获取专属词语 - 使用 GET 请求
         async function getWord() {
             if (isRequesting) return;
             if (!gameConfig.isInRoom) {
@@ -676,9 +673,7 @@
             }
             startRequest();
             try {
-                const res = await axios.post(`${BASE_URL}/api/getWord`, {
-                    roomId: gameConfig.roomId
-                });
+                const res = await axios.get(`${BASE_URL}/api/getWord?roomId=${gameConfig.roomId}`);
                 
                 // 处理各种错误码（根据后端代码）
                 if (res.data.code === -1) {
@@ -722,7 +717,7 @@
             }
         }
 
-        // 9. 重置房间 - 改进版本
+        // 9. 重置房间 - 使用 GET 请求
         async function resetRoom() {
             if (isRequesting) return;
             
@@ -746,9 +741,7 @@
                 // 只有当房间号有效且是房主时，才调用后端重置接口
                 if (currentRoomId && currentRoomId.length === 6 && currentIsOwner) {
                     try {
-                        await axios.post(`${BASE_URL}/api/resetRoom`, {
-                            roomId: currentRoomId
-                        });
+                        await axios.get(`${BASE_URL}/api/resetRoom?roomId=${currentRoomId}`);
                         console.log('后端房间重置成功');
                     } catch (err) {
                         console.warn('后端重置请求失败，但将继续重置前端状态');
@@ -800,12 +793,12 @@
             }
         }
 
-        // 10. 检查后端状态
+        // 10. 检查后端状态 - 已经是 GET 请求
         async function checkBackendStatus() {
             isCheckingBackend = true;
             renderResult('success', '🔍 正在检查后端状态...');
             try {
-                const res = await axios.post(`${BASE_URL}/api/getBankInfo`);
+                const res = await axios.get(`${BASE_URL}/api/getBankInfo`);
                 if (res.data.code === 0) {
                     const { total, minNum, maxNum } = res.data.data;
                     dom.bankCount.innerText = `(${total}题)`;
@@ -877,6 +870,34 @@
                 document.body.removeChild(input);
                 alert('房间号复制成功！');
             });
+        }
+
+        // 14. 获取指定编号的题目信息 - 使用 GET 请求
+        async function getWordByNum() {
+            if (isRequesting) return;
+            const num = parseInt(dom.numInput.value.trim());
+            if (isNaN(num) || num < 1) {
+                renderResult('error', '❌ 请输入有效的题目编号');
+                return;
+            }
+            
+            startRequest();
+            try {
+                const res = await axios.get(`${BASE_URL}/api/getWordByNum?num=${num}`);
+                if (res.data.code !== 0) {
+                    return renderResult('error', res.data.msg);
+                }
+                
+                const { spyWord, civilWord } = res.data.data;
+                renderResult('success', 
+                    `题目编号：${num}\n卧底词：${spyWord}\n平民词：${civilWord}\n\n📝 此功能用于预览题目`
+                );
+            } catch (err) {
+                renderResult('error', '❌ 获取题目信息失败');
+                console.error(err);
+            } finally {
+                endRequest();
+            }
         }
     </script>
 </body>
