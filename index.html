@@ -291,14 +291,25 @@
     <script>
         // axios全局配置：10秒超时
         axios.defaults.timeout = 10000;
-        // axios超时/网络异常拦截
+        // 标记当前是否正在检查后端状态（防止误报网络错误）
+        let isCheckingBackend = false;
+        
+        // 改进的axios拦截器，只对真正的用户操作显示错误
         axios.interceptors.response.use(
             res => res,
             err => {
-                if (err.code === 'ECONNABORTED') {
-                    renderResult('error', '❌ 请求超时，请检查网络后重试');
-                } else {
-                    renderResult('error', '❌ 网络异常，请稍后再试');
+                // 如果当前正在检查后端状态，不显示错误提示
+                if (isCheckingBackend) {
+                    return Promise.reject(err);
+                }
+                
+                // 只有当请求不是状态检查时，才显示错误
+                if (err.config.url && !err.config.url.includes('/api/getBankInfo')) {
+                    if (err.code === 'ECONNABORTED') {
+                        renderResult('error', '❌ 请求超时，请检查网络后重试');
+                    } else {
+                        renderResult('error', '❌ 网络异常，请稍后再试');
+                    }
                 }
                 endRequest(); // 无论如何都恢复按钮
                 return Promise.reject(err);
@@ -339,25 +350,39 @@
             // 从localStorage恢复游戏状态
             const savedConfig = localStorage.getItem('spyGameConfig');
             if (savedConfig) {
-                gameConfig = JSON.parse(savedConfig);
-                // 恢复输入框值
-                dom.roomIdInput.value = gameConfig.roomId;
-                dom.playerCount.value = gameConfig.total;
-                dom.numInput.value = gameConfig.lockNum;
-                dom.numInput.readOnly = gameConfig.isLock;
-                // 恢复输入框只读状态
-                if (gameConfig.isInRoom) {
-                    dom.playerCount.readOnly = gameConfig.isOwner;
-                    dom.roomIdInput.readOnly = true;
-                    dom.playerCount.style.background = gameConfig.isOwner ? '#f7fafc' : '';
-                    dom.roomIdInput.style.background = '#f7fafc';
-                    // 恢复按钮状态
-                    enableGameOper(true, gameConfig.isOwner && !gameConfig.isLock);
-                    // 已获取词语则禁用查询按钮
-                    if (gameConfig.hasGetWord) {
-                        dom.queryBtn.classList.add('btn-disabled');
-                        dom.queryBtn.disabled = true;
+                try {
+                    gameConfig = JSON.parse(savedConfig);
+                    // 恢复输入框值
+                    dom.roomIdInput.value = gameConfig.roomId;
+                    dom.playerCount.value = gameConfig.total;
+                    dom.numInput.value = gameConfig.lockNum;
+                    dom.numInput.readOnly = gameConfig.isLock;
+                    // 恢复输入框只读状态
+                    if (gameConfig.isInRoom) {
+                        dom.playerCount.readOnly = gameConfig.isOwner;
+                        dom.roomIdInput.readOnly = true;
+                        dom.playerCount.style.background = gameConfig.isOwner ? '#f7fafc' : '';
+                        dom.roomIdInput.style.background = '#f7fafc';
+                        // 恢复按钮状态
+                        enableGameOper(true, gameConfig.isOwner && !gameConfig.isLock);
+                        // 已获取词语则禁用查询按钮
+                        if (gameConfig.hasGetWord) {
+                            dom.queryBtn.classList.add('btn-disabled');
+                            dom.queryBtn.disabled = true;
+                        }
                     }
+                } catch (e) {
+                    // 如果localStorage数据损坏，清除它
+                    localStorage.removeItem('spyGameConfig');
+                    gameConfig = {
+                        isInRoom: false,
+                        roomId: '',
+                        isOwner: false,
+                        total: 0,
+                        lockNum: 0,
+                        isLock: false,
+                        hasGetWord: false
+                    };
                 }
             }
             // 初始化操作
@@ -663,25 +688,45 @@
             }
         }
 
-        // 9. 重置房间 - 对接后端
+        // 9. 重置房间 - 修复版本：即使房间号无效也能重置前端状态
         async function resetRoom() {
             if (isRequesting) return;
-            if (!gameConfig.isInRoom) {
-                renderResult('error', '❌ 请先创建/加入房间');
-                return;
+            
+            // 先获取当前的localStorage状态
+            const savedConfig = localStorage.getItem('spyGameConfig');
+            let currentRoomId = '';
+            let currentIsOwner = false;
+            
+            if (savedConfig) {
+                try {
+                    const savedGameConfig = JSON.parse(savedConfig);
+                    currentRoomId = savedGameConfig.roomId || '';
+                    currentIsOwner = savedGameConfig.isOwner || false;
+                } catch (e) {
+                    // 如果localStorage数据损坏，直接清除
+                    localStorage.removeItem('spyGameConfig');
+                }
             }
+            
             startRequest();
             try {
-                // 房主才调用后端重置接口
-                if (gameConfig.isOwner) {
-                    const res = await axios.post(`${BASE_URL}/api/resetRoom`, {
-                        roomId: gameConfig.roomId
-                    });
-                    if (res.data.code !== 0) {
-                        return renderResult('error', res.data.msg);
+                // 只有当房间号有效且是房主时，才调用后端重置接口
+                if (currentRoomId && currentRoomId.length === 6 && currentIsOwner) {
+                    try {
+                        const res = await axios.post(`${BASE_URL}/api/resetRoom`, {
+                            roomId: currentRoomId
+                        });
+                        if (res.data.code !== 0) {
+                            // 即使后端重置失败，我们仍然重置前端状态
+                            console.warn('后端重置失败，但将继续重置前端状态:', res.data.msg);
+                        }
+                    } catch (err) {
+                        // 后端调用失败，但我们仍然重置前端状态
+                        console.warn('后端重置请求失败，但将继续重置前端状态');
                     }
                 }
-                // 重置前端状态
+                
+                // 无论如何都重置前端状态
                 localStorage.removeItem('spyGameConfig');
                 gameConfig = {
                     isInRoom: false,
@@ -692,7 +737,8 @@
                     isLock: false,
                     hasGetWord: false
                 };
-                // 重置输入框
+                
+                // 重置输入框和按钮状态
                 dom.playerCount.value = '';
                 dom.roomIdInput.value = '';
                 dom.numInput.value = '';
@@ -705,9 +751,21 @@
                 dom.lockTip.innerText = '';
                 enableGameOper(false, false);
                 renderResult('success', '✅ 房间已重置！可重新创建/加入房间开始新游戏');
+                
             } catch (err) {
-                renderResult('error', '❌ 房间重置失败，请检查后端');
-                console.error(err);
+                // 即使出错，也要重置前端状态
+                localStorage.removeItem('spyGameConfig');
+                gameConfig = {
+                    isInRoom: false,
+                    roomId: '',
+                    isOwner: false,
+                    total: 0,
+                    lockNum: 0,
+                    isLock: false,
+                    hasGetWord: false
+                };
+                renderResult('success', '✅ 前端状态已重置！可重新开始新游戏');
+                console.error('重置时发生错误，但前端状态已清除:', err);
             } finally {
                 endRequest();
             }
@@ -715,6 +773,8 @@
 
         // 10. 检查后端状态（替代原来的题库加载）
         async function checkBackendStatus() {
+            // 设置标记，避免网络异常拦截器显示错误
+            isCheckingBackend = true;
             renderResult('success', '🔍 正在检查后端状态...');
             try {
                 const res = await axios.post(`${BASE_URL}/api/getBankInfo`);
@@ -726,11 +786,13 @@
                     dom.numInput.placeholder = `输入${minNum}-${maxNum}的编号`;
                     renderResult('success', `✅ 后端题库就绪，共${total}题`);
                 } else {
-                    renderResult('error', '❌ 后端题库状态异常');
+                    renderResult('success', '⚠️ 后端连接正常，但题库状态异常');
                 }
             } catch (err) {
                 console.log('后端状态检查失败，可能题库未加载:', err);
-                renderResult('success', '⚠️ 后端连接正常，题库可能正在加载中...');
+                renderResult('success', '⚠️ 后端可能未启动，部分功能可能受限');
+            } finally {
+                isCheckingBackend = false;
             }
         }
 
