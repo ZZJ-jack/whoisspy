@@ -69,27 +69,19 @@
 </div>
 
 <script>
-    // --- 新增：记录房主状态 ---
-    let isOwner = false;
+    // --- 新增：用于判断房主身份的标志 ---
+    let currentIsOwner = false;
+    let currentRoomId = null;
 
     // --- 新增：监听页面刷新/关闭事件 ---
     window.addEventListener('beforeunload', function(event) {
-        if (isOwner) {
-            // 发起一个非阻塞的fetch请求清理房间
-            // 注意：由于浏览器限制，同步请求或弹窗确认在这里通常无效
-            // 我们发送一个异步请求，并期望服务器能尽快处理
-            navigator.sendBeacon('/api/deleteRoom?roomId=' + encodeURIComponent(getCurrentRoomId()));
-            // 也可以使用fetch，但不能保证请求完成
-            // fetch(`/api/deleteRoom?roomId=${getCurrentRoomId()}`, { method: 'GET' });
+        if (currentIsOwner && currentRoomId) {
+            // 使用 sendBeacon 发送一个非阻塞的清理请求
+            // 这是清理资源的最佳方式，因为它在页面卸载时可靠地发送数据
+            navigator.sendBeacon(`/api/deleteRoom?roomId=${encodeURIComponent(currentRoomId)}`);
         }
     });
 
-    // 辅助函数：获取当前页面显示的房间号
-    function getCurrentRoomId() {
-        return document.getElementById('currentRoomId').textContent;
-    }
-
-    // --- 修改：createRoom 函数 ---
     async function createRoom() {
         const total = document.getElementById('totalPlayers').value;
         if (!total || total < 2 || total > 20) {
@@ -99,8 +91,9 @@
         const response = await fetch(`/api/createRoom?total=${total}`);
         const data = await response.json();
         if (data.code === 0) {
-            // --- 设置房主状态 ---
-            isOwner = data.data.isOwner; 
+            // --- 记录房主身份和房间ID ---
+            currentIsOwner = true;
+            currentRoomId = data.data.roomId;
             showGameControls(data.data.roomId, total);
             document.getElementById('result').innerHTML = `<p style="color:green;">✅ 房间创建成功！房间号: ${data.data.roomId}</p>`;
         } else {
@@ -108,7 +101,6 @@
         }
     }
 
-    // --- 修改：joinRoom 函数 ---
     async function joinRoom() {
         const roomId = document.getElementById('roomIdInput').value.trim();
         if (!roomId) {
@@ -118,8 +110,9 @@
         const response = await fetch(`/api/joinRoom?roomId=${encodeURIComponent(roomId)}`);
         const data = await response.json();
         if (data.code === 0) {
-            // --- 设置房主状态 ---
-            isOwner = data.data.isOwner; 
+            // --- 对于加入者，不是房主 ---
+            currentIsOwner = false;
+            currentRoomId = roomId;
             showGameControls(roomId, data.data.total);
             document.getElementById('result').innerHTML = `<p style="color:green;">✅ 加入房间成功！</p>`;
         } else {
@@ -130,27 +123,24 @@
     function showGameControls(roomId, total) {
         document.getElementById('currentRoomId').textContent = roomId;
         document.getElementById('currentTotal').textContent = total;
-        // 这里可以根据总人数计算并显示卧底和平民数，或者通过API获取
-        // 为了简化，我们暂时不计算，或从API响应中获取更详细信息
-        // 重新获取房间详情以获得准确的卧底/平民数
-        fetch(`/api/joinRoom?roomId=${encodeURIComponent(roomId)}`)
-            .then(r => r.json())
-            .then(d => {
-                if(d.code === 0){
-                    document.getElementById('currentSpy').textContent = d.data.total <= 6 ? 1 : d.data.total <= 10 ? 2 : d.data.total <= 16 ? 3 : Math.floor(d.data.total / 5);
-                    document.getElementById('currentCivil').textContent = d.data.total - (d.data.total <= 6 ? 1 : d.data.total <= 10 ? 2 : d.data.total <= 16 ? 3 : Math.floor(d.data.total / 5));
-                }
-            });
+        // 计算并显示卧底/平民数
+        let spyNum;
+        if (total <= 6) spyNum = 1;
+        else if (total <= 10) spyNum = 2;
+        else if (total <= 16) spyNum = 3;
+        else spyNum = Math.floor(total / 5);
+        document.getElementById('currentSpy').textContent = spyNum;
+        document.getElementById('currentCivil').textContent = total - spyNum;
+
         document.getElementById('gameControls').style.display = 'block';
     }
 
     async function randomLockNum() {
-        if (!isOwner) {
+        if (!currentIsOwner) {
             document.getElementById('result').innerHTML = '<p class="error-box">❌ 只有房主才能锁定题目！</p>';
             return;
         }
-        const roomId = getCurrentRoomId();
-        // 获取题库信息以确定范围
+        const roomId = document.getElementById('currentRoomId').textContent;
         const infoRes = await fetch('/api/getBankInfo');
         const infoData = await infoRes.json();
         if (infoData.code !== 0) {
@@ -165,14 +155,14 @@
         const data = await response.json();
         if (data.code === 0) {
             document.getElementById('result').innerHTML = `<p style="color:green;">✅ 题目编号 ${randomNum} 已锁定！</p>`;
-            document.getElementById('lockBtn').disabled = true; // 锁定按钮
+            document.getElementById('lockBtn').disabled = true;
         } else {
             document.getElementById('result').innerHTML = `<p class="error-box">❌ 锁定失败: ${data.msg}</p>`;
         }
     }
 
     async function getWord() {
-        const roomId = getCurrentRoomId();
+        const roomId = document.getElementById('currentRoomId').textContent;
         const response = await fetch(`/api/getWord?roomId=${encodeURIComponent(roomId)}`);
         const data = await response.json();
 
@@ -195,17 +185,16 @@
 
     // --- 修改：resetRoom 函数 ---
     async function resetRoom() {
-        const roomId = getCurrentRoomId();
+        const roomId = document.getElementById('currentRoomId').textContent;
         const response = await fetch(`/api/resetRoom?roomId=${encodeURIComponent(roomId)}`);
         const data = await response.json();
         if (data.code === 0) {
             document.getElementById('result').innerHTML = `<p style="color:green;">✅ 房间重置成功！可以开始新游戏。</p>`;
             document.getElementById('lockBtn').disabled = false; // 解锁按钮
 
-            // --- 如果是房主，清理KV中的房间数据 ---
-            if (isOwner) {
+            // --- 核心逻辑：如果当前用户是房主，则删除KV中的房间信息 ---
+            if (currentIsOwner) {
                 try {
-                    // 发送请求删除KV中的房间数据
                     const deleteRes = await fetch(`/api/deleteRoom?roomId=${encodeURIComponent(roomId)}`);
                     const deleteData = await deleteRes.json();
                     console.log("KV房间数据清理结果:", deleteData.msg);
@@ -218,8 +207,6 @@
         }
     }
 
-    // 页面加载时，检查是否有房间号，如果有则尝试加入（可选功能）
-    // window.onload = function() { /* ... */ };
 </script>
 
 </body>
