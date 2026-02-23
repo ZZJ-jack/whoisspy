@@ -648,8 +648,8 @@
             <div class="tip-box">
                 <p>🔒 核心规则：房主选题后编号锁定，房间内所有人强制同一题</p>
                 <p>🎮 流程：房主创房间 → 玩家加房间 → 房主随机选题 → 依次点击获取词语</p>
-                <p>🌐 前端：Vue3+html+css+js，部署至EdgeOne Pages，纯静态页面</p>
-                <p>💻 后端：Node.js，部署至CloudFlare Workers，房间数据存储在KV</p>
+                <p>🌐 前端：Vue3+html+css+js，部署至EdgeOne Pages</p>
+                <p>💻 后端：Node.js，部署至CloudFlare Workers</p>
             </div>
         </div>
     </div>
@@ -855,7 +855,12 @@
                                 gameConfig.total = data.data.total;
                                 if (data.data.isLock) {
                                     numInput.value = data.data.lockNum;
-                                    statusBarText.value = `房主已锁定题目编号：${data.data.lockNum}，点击【获取专属词语】领取你的词`;
+                                    if (!gameConfig.hasGetWord) {
+                                        statusBarText.value = `房主已锁定题目编号：${data.data.lockNum}，点击【获取专属词语】领取你的词`;
+                                    }
+                                }
+                                if (data.data.assigned > 0 && !gameConfig.hasGetWord) {
+                                    statusBarText.value = `已有 ${data.data.assigned}/${data.data.total} 人获取词语`;
                                 }
                             }
                             break;
@@ -869,9 +874,7 @@
                             break;
                             
                         case 'playerAssigned':
-                            if (!gameConfig.hasGetWord) {
-                                statusBarText.value = `已有 ${data.data.assigned}/${data.data.total} 人获取词语`;
-                            }
+                            statusBarText.value = `已有 ${data.data.assigned}/${data.data.total} 人获取词语`;
                             break;
                             
                         case 'roomReset':
@@ -879,6 +882,7 @@
                             gameConfig.lockNum = 0;
                             gameConfig.hasGetWord = false;
                             numInput.value = null;
+                            statusBarText.value = '';
                             saveGameConfig();
                             renderResult('success', '📡 实时同步：房间已被房主重置，可重新开始游戏');
                             break;
