@@ -316,6 +316,45 @@
         body.has-warning {
             padding-top: 50px;
         }
+        .status-bar {
+            background: linear-gradient(135deg, #e6fffa 0%, #c6f6d5 100%);
+            border: 1px solid #9ae6b4;
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #276749;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .status-bar.hidden {
+            display: none;
+        }
+        .status-bar .status-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .status-bar .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #38b2ac;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .status-bar .status-text {
+            color: #2d3748;
+        }
+        .status-bar .status-highlight {
+            color: #e53e3e;
+            font-weight: 600;
+        }
 
         @media screen and (max-width: 480px) {
             body {
@@ -621,6 +660,15 @@
 
             <div class="result-box" v-html="resultHtml"></div>
 
+            <div class="status-bar" :class="{ hidden: !showStatusBar }">
+                <div class="status-item">
+                    <div class="status-dot"></div>
+                    <span class="status-text">实时状态：</span>
+                </div>
+                <span v-if="statusTopicLocked" class="status-highlight">题目已锁定 #{{ statusTopicLocked }}</span>
+                <span v-if="statusAssigned" class="status-text">已分配 {{ statusAssigned }}人</span>
+            </div>
+
             <div class="tip-box">
                 <p>🔒 核心规则：房主选题后编号锁定，房间内所有人强制同一题</p>
                 <p>🎮 流程：房主创房间 → 玩家加房间 → 房主随机选题 → 依次点击获取词语</p>
@@ -669,6 +717,10 @@
                 });
                 
                 const resultHtml = ref('<div style="color:#718096;">✅ 正在连接后端...</div>');
+                
+                const showStatusBar = ref(false);
+                const statusTopicLocked = ref(null);
+                const statusAssigned = ref(null);
                 
                 const lockTipText = computed(() => {
                     if (!gameConfig.isInRoom) return '';
@@ -848,9 +900,11 @@
                             break;
                             
                         case 'playerAssigned':
-                            renderResult('success', 
-                                `📡 实时更新：已有 ${data.data.assigned}/${data.data.total} 人获取词语`
-                            );
+                            if (!gameConfig.hasGetWord) {
+                                renderResult('success', 
+                                    `📡 实时更新：已有 ${data.data.assigned}/${data.data.total} 人获取词语`
+                                );
+                            }
                             break;
                             
                         case 'roomReset':
